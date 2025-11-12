@@ -5,12 +5,12 @@ Code description.
 # Author: Zhaoliang Zheng <zhz03@g.ucla.edu>
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
-import os 
+import os
 import numpy as np
 from PIL import Image
 import open3d as o3d
 from matplotlib import cm
-import carla
+
 from datetime import datetime
 
 from tools.carla_dataset_utils.bbx_projection import decode_yaml
@@ -20,22 +20,29 @@ from PIL import Image, ImageDraw, ImageFont
 VIRIDIS = np.array(cm.get_cmap('viridis').colors)
 VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
 
+try:
+    import carla  # type: ignore
+    _CARLA_AVAILABLE = True
+except ImportError:
+    carla = None  # type: ignore
+    _CARLA_AVAILABLE = False
+
 def create_transformation(x, y, z, roll, yaw, pitch):
     """
-    Reconstruct a carla.Transform object from provided transformation parameters.
+    Build forward and inverse homogeneous transforms from CARLA-style pose parameters.
 
-    :param x: X-coordinate of the LiDAR location.
-    :param y: Y-coordinate of the LiDAR location.
-    :param z: Z-coordinate of the LiDAR location.
-    :param roll: Roll angle of the LiDAR rotation (degrees).
-    :param yaw: Yaw angle of the LiDAR rotation (degrees).
-    :param pitch: Pitch angle of the LiDAR rotation (degrees).
-    :return: carla.Transform object representing the LiDAR transformation.
+    When the `carla` module is available, use its native API for consistency with the
+    simulator; otherwise fall back to NumPy-based reconstruction.
     """
-    location = carla.Location(x=x, y=y, z=z)
-    rotation = carla.Rotation(roll=roll, yaw=yaw, pitch=pitch)
-    carla_transformation = carla.Transform(location, rotation)
-    return carla_transformation.get_matrix(), carla_transformation.get_inverse_matrix()
+    if _CARLA_AVAILABLE and carla is not None:
+        location = carla.Location(x=x, y=y, z=z)
+        rotation = carla.Rotation(roll=roll, yaw=yaw, pitch=pitch)
+        carla_transformation = carla.Transform(location, rotation)
+        return carla_transformation.get_matrix(), carla_transformation.get_inverse_matrix()
+
+    forward = to_homogeneous_matrix(x, y, z, roll, yaw, pitch)
+    inverse = np.linalg.inv(forward)
+    return forward, inverse
 
 def to_homogeneous_matrix(x, y, z, roll, yaw, pitch):
     """
