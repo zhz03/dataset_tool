@@ -388,7 +388,7 @@ def project_lidar_to_camera1(image_w, image_h, im_array, p_cloud, K,
 
 
 def project_lidar_to_camera2(image_w, image_h, im_array, p_cloud, K, 
-                             lidar_2_world, world_2_camera, output_dir, image_txt):
+                             lidar_2_world, world_2_camera, output_dir, frame, image_txt):
     """
     Projects LiDAR point cloud data onto the camera image plane.
 
@@ -484,7 +484,7 @@ def project_lidar_to_camera2(image_w, image_h, im_array, p_cloud, K,
 
     # Generate a timestamp for the filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_name = f"{output_dir}/{timestamp}.png"
+    file_name = f"{output_dir}/{frame}_{timestamp}.png"
 
     # Add text to the top-left corner of the saved image
     draw = ImageDraw.Draw(image)
@@ -496,8 +496,8 @@ def project_lidar_to_camera2(image_w, image_h, im_array, p_cloud, K,
     image.save(file_name)
     print("2: saved image to:", file_name)
 
-def project_save_single_frame(img_file_path,pcd_file_path,yaml_file,output_dir,
-                              cam_index,lidar_index):
+def project_save_single_frame(img_file_path, pcd_file_path, yaml_file, output_dir,
+                              frame, cam_index, lidar_index):
     """
     Projects LiDAR point cloud data onto a 2D camera image and saves the resulting visualization.
 
@@ -566,16 +566,16 @@ def project_save_single_frame(img_file_path,pcd_file_path,yaml_file,output_dir,
 
     image_w, image_h = decode_wh(camera_intrinsic)
 
-    print("cam_cords:", cam_cords)
+    #print("cam_cords:", cam_cords)
     _,world_2_camera = create_transformation(cam_cords[0], cam_cords[1], cam_cords[2], \
                                               cam_cords[3], cam_cords[4], cam_cords[5]) 
 
-    print("lidar_cords:", lidar_cords)    
+    #print("lidar_cords:", lidar_cords)    
 
     im_array = process_jpeg_to_array(img_file_path)
     p_cloud = process_pcd_to_array(pcd_file_path)
 
-    print("lidar_cords_new:", lidar_cords)
+    #print("lidar_cords_new:", lidar_cords)
     lidar_2_world,world_2_lidar = create_transformation(lidar_cords[0], lidar_cords[1], lidar_cords[2], \
                                             lidar_cords[3], lidar_cords[4], lidar_cords[5])
     # print("---")
@@ -589,7 +589,7 @@ def project_save_single_frame(img_file_path,pcd_file_path,yaml_file,output_dir,
 
     
     project_lidar_to_camera2(image_w, image_h, im_array, p_cloud, camera_intrinsic, 
-                                lidar_2_world, world_2_camera, output_dir,image_txt=str(lidar_cords[4]))
+                                lidar_2_world, world_2_camera, output_dir, frame, image_txt=str(lidar_cords[4]))
 
 
 # =============================================================================
@@ -674,10 +674,10 @@ def test_project_save_single_frame_based_on_diff_yaw():
                                     lidar_2_world, world_2_camera, output_dir,image_txt=str(lidar_cords[4]))
 
 def test5():
-    img_file_path = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030_cam3.jpeg"
-    pcd_file_path = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030.bin"
-    yaml_file = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030.yaml"
-    output_dir = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/example"
+    img_file_path = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection1_4cam_radar/-125/000031_camera0.png"
+    pcd_file_path = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection1_4cam_radar/-125/000031_lidar0.pcd"
+    yaml_file = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection1_4cam_radar/-125/000031.yaml"
+    output_dir = "/home/carma/dg/results/lidar2cam"
     project_save_single_frame(img_file_path, pcd_file_path, yaml_file, output_dir,
                               cam_index=1,lidar_index=0)
 
@@ -687,4 +687,21 @@ if __name__ == "__main__":
     # test3()
     # test4()
     # project_save_single_frame()
-    test5()
+    #test5()
+
+    root = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/test/"
+    config_yamls = ["bridgeentry_town07_med_infra_radar_t_c_day_s7"]
+
+    for config_yaml in config_yamls:
+        for i in range(31, 51):
+            for j in range(4):
+                frame = f"{i:06d}"
+                sensor_id = str(j)
+
+                config_yaml_frame = config_yaml + "/-125/" + frame
+                img_file_path = root + config_yaml_frame + "_camera" + sensor_id + ".png"
+                pcd_file_path = root + config_yaml_frame + "_lidar0.pcd"
+                yaml_file = root + config_yaml_frame + ".yaml"
+                output_dir =  "/home/carma/dg/results/lidar2cam/" + config_yaml + "/" + sensor_id
+                project_save_single_frame(img_file_path, pcd_file_path, yaml_file, output_dir,
+                                        frame, cam_index=j,lidar_index=0)

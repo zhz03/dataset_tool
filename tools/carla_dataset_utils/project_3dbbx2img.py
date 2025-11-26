@@ -12,9 +12,14 @@ import os
 import math
 from datetime import datetime
 from tools.carla_dataset_utils.bbx_projection import decode_yaml
-from tools.carla_dataset_utils.proj_lidar2cam import create_transformation, process_jpeg_to_array
+from tools.carla_dataset_utils.project_lidar2cam import create_transformation, process_jpeg_to_array
 from tools.carla_dataset_utils.box_utils import convert_carla_data_to_box, \
     create_rotated_box, create_rotated_box_points, proj_points_2_img, save_img
+
+def load_yaml(file):
+    """Load sensor calibration YAML."""
+    with open(file, 'r') as f:
+        return yaml.safe_load(f)
 
 # Construct rotation matrix
 def rotation_matrix(roll, pitch, yaw):
@@ -183,7 +188,7 @@ def main():
     image_h = 1080
     fov = 120
 
-    lidar_pose_list, camera_list, vehicle_dict, pedestrian_dict = decode_yaml(yaml_file)
+    lidar_pose_list, camera_list, _, _ = decode_yaml(yaml_file)
     K = get_K(image_w, image_h, fov)
 
     my_cam = camera_list[1]
@@ -330,13 +335,20 @@ def main():
 
 # zzl
 def test_bbx():
-    img_path = "/home/zzl/zzl/Multi-Mod_Sensor_Config_Lib/data_dumping/example/2024_11_30_16_15_46/125/camera0_000045.png"
-    yaml_file = "/home/zzl/zzl/Multi-Mod_Sensor_Config_Lib/data_dumping/example/2024_11_30_16_15_46/125/000045.yaml"
-    output_dir = "/home/zzl/zzl/Multi-Mod_Sensor_Config_Lib/data_dumping/example/2024_11_30_16_15_46/"
-    lidar_pose_list, camera_list, vehicle_dict, pedestrian_dict = decode_yaml(yaml_file)
+    img_path = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection1_4cam_radar/-125/000031_camera0.png"
+    yaml_file = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection1_4cam_radar/-125/000031.yaml"
+    output_dir = "/home/carma/dg/results/bbx2image"
+    lidar_pose_list, camera_list, _, _ = decode_yaml(yaml_file)
+    # get roadside units
+    data = load_yaml(yaml_file)
+    unit_types = {'cars','cyclists','pedestrians','trucks'}
+    units = {}
+    for unit_type in unit_types:
+        units.update(data.get(unit_type, {}))
+    vehicle_dict = units
 
-    lidar_index = 1
-    cam_index = 1
+    lidar_index = 0
+    cam_index = 0
     camera_param = camera_list[cam_index]
     lidar_cords = lidar_pose_list[lidar_index]
     
@@ -369,7 +381,7 @@ def test_bbx():
             translated_vertices, edges, colors = create_rotated_box_points(position, scale, rotation)
             
             points_2_world, _ = create_transformation(position['x'], position['y'], position['z'], \
-                                            angle[3], angle[4], angle[5])
+                                            angle[0], angle[1], angle[2])
 
             print("translated_vertices:",translated_vertices)
             print("shape of translated_vertices:",translated_vertices.shape)

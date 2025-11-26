@@ -847,20 +847,25 @@ def transform_bbox_world_to_lidar(bbox_world, T_inv):
     bbox_lidar = np.array([x_l, y_l, z_l, h, w, l, yaw_l], dtype=np.float32)
     return bbox_lidar
 
-def main(yaml_file, pcd_file):
+def main(yaml_file, pcd_file, sensor_type, sensor_id):
     # (1) Load data
     data = load_yaml(yaml_file)
-    lidar_pose = data['lidar_pose']  # LiDAR pose in the world frame [x, y, z, roll, pitch, yaw]
-    vehicles = data.get('vehicles', {})
+    sensor_id = sensor_type + '_pose' + str(sensor_id)
+    lidar_pose = data[sensor_id]  # LiDAR pose in the world frame [x, y, z, roll, pitch, yaw]
 
     # Load LiDAR points (already in LiDAR frame)
     pcd_xyz = load_pcd(pcd_file)  # Shape: (N, 3)
 
     # (2) Parse bounding boxes in world frame
+    unit_types = {'cars','cyclists','pedestrians','trucks'}
+    units = {}
+    for unit_type in unit_types:
+        units.update(data.get(unit_type, {}))
+    
     bboxes = []
-    for vid, vehicle_info in vehicles.items():
+    for vid, unit_info in units.items():
         # parse_vehicle_bbox could return [x, y, z, h, w, l, yaw]
-        bbx = parse_vehicle_bbox(vehicle_info)
+        bbx = parse_vehicle_bbox(unit_info)
         bboxes.append(bbx)
     bboxes = np.array(bboxes, dtype=np.float32) if bboxes else np.zeros((0, 7), dtype=np.float32)
 
@@ -895,7 +900,7 @@ def main(yaml_file, pcd_file):
 
 
 
-def main_with_args(root_dir, agent, frame):
+def main_with_args(root_dir, agent, frame, sensor_type, sensor_id):
     """
     Build the file paths from root_dir, agent, frame,
     then call the original 'main' function.
@@ -904,16 +909,18 @@ def main_with_args(root_dir, agent, frame):
     frame_str = f"{int(frame):06}"  # e.g., 72 -> "000072"
 
     yaml_file = f"{root_dir}/{agent_str}/{frame_str}.yaml"
-    pcd_file  = f"{root_dir}/{agent_str}/{frame_str}.pcd"
+    pcd_file  = f"{root_dir}/{agent_str}/{frame_str}_" + sensor_type + str(sensor_id) + ".pcd"
 
-    main(yaml_file, pcd_file)
+    main(yaml_file, pcd_file, sensor_type, sensor_id)
 
 
 if __name__ == "__main__":
     # root_dir = '/data1/sensor_config_data/testset/v2xset/2021_08_20_21_48_35'
     # root_dir = '/home/handsomeyun/Yun/Multi-Mod_Sensor_Config_Lib/data_dumping/town10/'
-    root_dir = '/home/handsomeyun/Yun/Multi-Mod_Sensor_Config_Lib/data_dumping/halfdistance/town6halfdistance'
-    agent    = -1
-    frame    = 50
+    root_dir = '/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection3_4cam_radar'
+    agent    = -125
+    frame    = 41
+    sensor_type = "lidar"
+    sensor_id = 0
 
-    main_with_args(root_dir, agent, frame)
+    main_with_args(root_dir, agent, frame, sensor_type, sensor_id)

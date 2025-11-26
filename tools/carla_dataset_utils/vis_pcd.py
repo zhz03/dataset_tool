@@ -40,11 +40,12 @@ def visualize_pcd(file_path):
     vis.run()
     vis.destroy_window()
 
-def test():
+def test(pcd_path):
     # Specify the PCD file path
-    pcd_file_path = "/home/zzl/zzl/Multi-Mod_Sensor_Config_Lib/data_dumping/example/2024_11_30_16_15_46/125/lidar0_000017.pcd"
+    pcd_file_path = pcd_path
     # Call the visualization function
     visualize_pcd(pcd_file_path)
 
 if __name__ == "__main__":
+    #test("/home/carma/dg/dg_dump/dg_t5_4cam/-126/000031_radar3.pcd")
     pass

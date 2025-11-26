@@ -57,7 +57,7 @@ def decode_yaml(yaml_file):
     yaml_param = load_yaml(yaml_file)
     # get the key of yaml_param
     key_list = list(yaml_param.keys())
-    print("key:",key_list)
+    #print("key:",key_list)
 
     lidar_key_list = []
     camera_key_list = []
