@@ -11,6 +11,10 @@ import cv2
 import os
 import math
 from datetime import datetime
+import sys
+import os
+sys.path.insert(0, os.getcwd())
+
 from tools.carla_dataset_utils.bbx_projection import decode_yaml
 from tools.carla_dataset_utils.project_lidar2cam import create_transformation, process_jpeg_to_array
 from tools.carla_dataset_utils.box_utils import convert_carla_data_to_box, \
@@ -330,9 +334,9 @@ def main():
 
 # zzl
 def opv2v_bbx_projection():
-    img_path = "/home/carma/dg/dataset_example/test_town04/-125/000032_camera2.png"
-    yaml_file = "/home/carma/dg/dataset_example/test_town04/-125/000032.yaml"
-    output_dir = "/home/carma/dg/results2/bbx2image"
+    img_path = "./data_examples/m2i_radar_dataset/000032_camera2.png"
+    yaml_file = "./data_examples/m2i_radar_dataset/000032.yaml"
+    output_dir = "./data_examples/results"
     lidar_pose_list, camera_list, vehicle_dict, pedestrian_dict = decode_yaml(yaml_file)
 
     lidar_index = 0
@@ -385,6 +389,8 @@ def opv2v_bbx_projection():
     # Save the final image with all bounding boxes after processing all vehicles
     # Generate a timestamp for the filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     save_file_name = f"{output_dir}/{timestamp}.png"
     save_img(im_array, save_file_name)
     print(f"All bounding boxes projected and saved to {save_file_name}") 
