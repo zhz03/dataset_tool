@@ -334,13 +334,18 @@ def main():
 
 # zzl
 def opv2v_bbx_projection():
-    img_path = "./data_examples/m2i_radar_dataset/000032_camera2.png"
+    img_path = "./data_examples/m2i_radar_dataset/000032_camera3.png"
     yaml_file = "./data_examples/m2i_radar_dataset/000032.yaml"
-    output_dir = "./data_examples/results"
+    output_dir = "./data_examples/m2i_radar_dataset/verification_results"
     lidar_pose_list, camera_list, vehicle_dict, pedestrian_dict = decode_yaml(yaml_file)
 
     lidar_index = 0
-    cam_index = 2
+    # get cam_index from img_path
+    cam_index = img_path.split("/")[-1].split("_")[-1].split(".")[0] # camera1 -> 1
+    # convert 'camera1' to 1
+    cam_index = int(cam_index.split("camera")[1])
+    print("cam_index:", cam_index)
+
     camera_param = camera_list[cam_index]
     # lidar_cords = lidar_pose_list[lidar_index]
     

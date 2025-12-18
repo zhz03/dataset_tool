@@ -668,10 +668,15 @@ def test_project_save_single_frame_based_on_diff_yaw():
                                     lidar_2_world, world_2_camera, output_dir,image_txt=str(lidar_cords[4]))
 
 def test5():
-    img_file_path = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030_cam3.jpeg"
-    pcd_file_path = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030.bin"
-    yaml_file = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030.yaml"
-    output_dir = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/example"
+    # img_file_path = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030_cam3.jpeg"
+    # pcd_file_path = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030.bin"
+    # yaml_file = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/1/000030.yaml"
+    # output_dir = "/Users/zhaoliang/Documents/zhz03/github/v2x-real-example/2023-04-03-18-15-32_9_0/example"
+
+    img_file_path = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/000032_camera1.png"
+    pcd_file_path = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/000032_lidar0.pcd"
+    yaml_file = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/000032.yaml"
+    output_dir = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/check_data1"
     project_save_single_frame(img_file_path, pcd_file_path, yaml_file, output_dir,
                               cam_index=1,lidar_index=0)
 
