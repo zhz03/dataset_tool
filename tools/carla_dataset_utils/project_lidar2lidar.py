@@ -8,8 +8,24 @@ import os
 import open3d as o3d
 import numpy as np
 import carla
-from opencda_infra.utils.verify_dataset.pcd_utils import PCLoader
-from opencda_infra.utils.yaml_utils import load_yaml
+from tools.carla_dataset_utils.pcd_utils import PCLoader
+from tools.utils.yaml_utils import load_yaml
+
+def pose_to_transform(pose):
+    """Convert [x, y, z, roll, yaw, pitch] to carla.Transform."""
+    x, y, z, roll, yaw, pitch = pose
+    location = carla.Location(x=float(x), y=float(y), z=float(z))
+    rotation = carla.Rotation(roll=float(roll), pitch=float(pitch), yaw=float(yaw))
+    return carla.Transform(location, rotation)
+
+def inverse_matrix(M):
+    """Inverse of a 4×4 homogeneous transform."""
+    R = M[:3, :3]
+    t = M[:3, 3]
+    M_inv = np.eye(4)
+    M_inv[:3, :3] = R.T
+    M_inv[:3, 3] = -R.T @ t
+    return M_inv
 
 class ProjLidar2Lidar:
     """
@@ -145,16 +161,20 @@ class ProjLidar2Lidar:
             save_path: Path to save the combined point cloud
             vis_flag: Whether to visualize the result
         """
-        # Load LiDAR point cloud
-        pcd1 = self.load_point_cloud(pcd_path1, mode="xyzi")
-        pcd1.paint_uniform_color([1, 0, 0])  # Red for LiDAR
+        if pcd_path1 is not None:
+            # Load LiDAR point cloud
+            pcd1 = self.load_point_cloud(pcd_path1, mode="xyzi")
+            pcd1.paint_uniform_color([1, 0, 0])  # Red for LiDAR
 
+            # Initialize combined point cloud with LiDAR points
+            combined_pcd = pcd1
+        else:
+            # create an empty combined_pcd
+            combined_pcd = o3d.geometry.PointCloud()
+            
         # Load LiDAR pose
         lidar_pose = self.load_pcd_pose(yaml_file, config_key=config_key1)
         print(f"Loaded LiDAR pose: {lidar_pose}")
-
-        # Initialize combined point cloud with LiDAR points
-        combined_pcd = pcd1
 
         # Process each radar point cloud
         for i, radar_key in enumerate(config_key2):
@@ -250,7 +270,7 @@ class ProjLidar2Lidar:
 
         # Construct transformation matrix
         # tf_matrix = self.construct_tf_matrix(lidar_pose2, lidar_pose1)
-        tf_matrix = self.construct_tf_matrix(lidar_pose1, lidar_pose2)
+        tf_matrix = self.construct_tf_matrix_normal(lidar_pose2, lidar_pose1)
 
         print("Transformation Matrix from LiDAR 1 to LiDAR 2:")
         print(tf_matrix)
@@ -262,9 +282,11 @@ class ProjLidar2Lidar:
         print("zzl New Relative Position (x, y, z, roll, yaw, pitch):")
         print(rel_pos)
         tf_matrix_new = self.convert_pose2tf(rel_pos)
+        print("New Transformation Matrix from LiDAR 1 to LiDAR 2:")
+        print(tf_matrix_new)
 
         # Apply transformation to pcd1
-        transformed_pcd2 = self.apply_transformation(pcd2, tf_matrix_new)
+        transformed_pcd2 = self.apply_transformation(pcd2, tf_matrix)
         # Combine point clouds
         combined_pcd = self.combine_point_clouds(pcd1, transformed_pcd2)
         # Save combined point cloud
@@ -306,6 +328,8 @@ class ProjLidar2Lidar:
         print(rel_pos)
         # rel_pos[4] = 
         tf_matrix_new = self.convert_pose2tf(rel_pos)
+        print("New Transformation Matrix from LiDAR 1 to LiDAR 2:")
+        print(tf_matrix_new)
 
         # Apply transformation to pcd1
         transformed_pcd2 = self.apply_transformation(pcd2, tf_matrix_new)
@@ -376,7 +400,7 @@ class ProjLidar2Lidar:
         # Convert angles from degrees to radians
         roll = np.deg2rad(roll_deg)
         yaw = np.deg2rad(yaw_deg)
-        pitch = np.deg2rad(pitch_deg)
+        pitch = np.deg2rad(-pitch_deg) # Negate pitch to match Carla's convention
         # Compute rotation matrices
         cos_r = np.cos(roll)
         sin_r = np.sin(roll)
@@ -579,67 +603,51 @@ class ProjLidar2Lidar:
         return tf_matrix
     
     @staticmethod
-    def construct_tf_matrix(lidar_pose1, lidar_pose2):
+    def construct_tf_matrix_normal(lidar_pose1, lidar_pose2):
         """
-        Construct a transform that maps points from lidar_pose1 frame into lidar_pose2 frame,
-        using CARLA's convention: first apply the global translation, then apply roll/pitch/yaw
-        about lidar_pose2's *local* axes.
-
+        Construct a transform that maps points from lidar_pose1 frame into lidar_pose2 frame.
+        
         Args:
             lidar_pose1: [x1, y1, z1, roll1, yaw1, pitch1] (degrees, global frame)
             lidar_pose2: [x2, y2, z2, roll2, yaw2, pitch2] (degrees, global frame)
 
         Returns:
-            tf_matrix: 4×4, so that
+            tf_matrix: 4x4, so that
                 p_in_pose2 = tf_matrix @ [p_in_pose1; 1]
         """
-        # 1) compute global translation delta
-        x1, y1, z1 = lidar_pose1[:3]
-        x2, y2, z2 = lidar_pose2[:3]
-        dx, dy, dz = x2 - x1, y2 - y1, z2 - z1
+        # Convert poses to 4x4 transformation matrices
+        tf1 = ProjLidar2Lidar.convert_pose2tf(lidar_pose1)
+        tf2 = ProjLidar2Lidar.convert_pose2tf(lidar_pose2)
 
-        # build translation-only matrix
-        T = np.eye(4)
-        T[0:3, 3] = [dx, dy, dz]
-
-        # 2) compute relative angles in degrees (local frame rotations)
-        # note: we apply roll, then pitch, then yaw around the *new* axes
-        droll  = lidar_pose2[3] - lidar_pose1[3]
-        dyaw   = lidar_pose2[4] - lidar_pose1[4]
-        dpitch = lidar_pose2[5] - lidar_pose1[5]
-
-        # convert to radians
-        dr = np.deg2rad(droll)
-        dy = np.deg2rad(dyaw)
-        dp = np.deg2rad(dpitch)
-
-        # 3) build local rotation matrices
-        # roll around X (local)
-        cr, sr = np.cos(dr), np.sin(dr)
-        R_x = np.array([[1,  0,   0],
-                        [0, cr, -sr],
-                        [0, sr,  cr]])
-        # pitch around Y (local)
-        cp, sp = np.cos(dp), np.sin(dp)
-        R_y = np.array([[ cp, 0, sp],
-                        [  0, 1,  0],
-                        [-sp, 0, cp]])
-        # yaw around Z (local)
-        cy, sy = np.cos(dy), np.sin(dy)
-        R_z = np.array([[cy, -sy, 0],
-                        [sy,  cy, 0],
-                        [ 0,   0, 1]])
-
-        # 4) combine into one local-axes rotation
-        # since each rotation is in the *new* intermediate frame, we post-multiply:
-        R_local = R_x @ R_y @ R_z
-
-        # 5) assemble the full 4×4
-        tf_matrix = T.copy()
-        tf_matrix[0:3, 0:3] = R_local
+        # Compute relative transformation: T_1->2 = inv(T2) @ T1
+        tf_matrix = np.linalg.inv(tf2) @ tf1
 
         return tf_matrix
-    
+
+    @staticmethod
+    def construct_tf_matrix(lidar_pose1, lidar_pose2):
+        """
+        Compute transform matrix so that:
+            p_in_pose2 = tf_matrix @ [p_in_pose1; 1]
+
+        lidar_pose: [x, y, z, roll, yaw, pitch] in degrees, global frame
+        """
+        # Convert to CARLA transforms
+        T1 = pose_to_transform(lidar_pose1)
+        T2 = pose_to_transform(lidar_pose2)
+
+        # Convert to 4×4 numpy matrices
+        M1 = np.array(T1.get_matrix())
+        M2 = np.array(T2.get_matrix())
+
+        # Compute: pose1 -> world -> pose2
+        # p2 = inv(M2) * M1 * p1
+        M2_inv = inverse_matrix(M2)
+        tf_matrix = M2_inv @ M1
+
+        return tf_matrix
+
+
 def test1():
     #* PassTest
     # test construct_tf_matrix function 
@@ -650,9 +658,9 @@ def test1():
     print(tf_matrix)
 
 def test2():
-    pcd1_path = "./data_dumping/fourway_2cav_town10_dense_bg_old/1/000031.pcd"
-    pcd2_path = "./data_dumping/fourway_2cav_town10_dense_bg_old/1/000031_radar0.pcd"
-    yaml_file = "./data_dumping/fourway_2cav_town10_dense_bg_old/1/000031.yaml"
+    pcd1_path = "./data_examples/m2i_radar_dataset/000032_lidar0.pcd"
+    pcd2_path = "./data_examples/m2i_radar_dataset/000032_radar0.pcd"
+    yaml_file = "./data_examples/m2i_radar_dataset/000032.yaml"
     # save_path = "combined_pcd.pcd"
     proj = ProjLidar2Lidar(point_size=1.0)
     proj.single_comb(pcd1_path, pcd2_path, yaml_file, 
@@ -661,16 +669,27 @@ def test2():
                      vis_flag=True)
     # proj.single_vis(pcd1_path, vis_flag=True)
 
+def test21():
+    pcd1_path = "data_examples/i2i_radar/roundabout_town03_med/-125/000031.pcd"
+    pcd2_path = "data_examples/i2i_radar/roundabout_town03_med/-125/000031_radar1.pcd"
+    yaml_file = "data_examples/i2i_radar/roundabout_town03_med/-125/000031.yaml"
+    # save_path = "combined_pcd.pcd"
+    proj = ProjLidar2Lidar(point_size=1.0)
+    proj.single_comb(pcd1_path, pcd2_path, yaml_file, 
+                     config_key1="lidar_pose0", 
+                     config_key2="radar_pose1",
+                     vis_flag=True)
 def test3():
-    pose1=  [-80.29042053222656, -12.31905746459961, 6.692790985107422, 0.0, 0.0, 0.0]
-    pose2= [-97.93782806396484, -2.0493040084838867, 7.0, 1.471929600427302e-08, 0.5917998552322388, -24.9999942779541]
-    # pose2= [-97.93782806396484, -2.0493040084838867, 7.0, 1.471929600427302e-08, 0.0, 0.0]
-    # tf_matrix = ProjLidar2Lidar.construct_tf_matrix(pose2, pose1)
-    tf_matrix = construct_tf_matrix(pose1, pose2)
-    rel_pos = ProjLidar2Lidar.convert_tf2pose(tf_matrix)
-    print("Relative Position (x, y, z, roll, yaw, pitch):")
-    print(rel_pos)
+    pcd1_path = "data_examples/test_town04_03/-125/000031_lidar0.pcd"
+    pcd2_path = "data_examples/test_town04_04/-125/000031_radar1.pcd"
+    yaml_file = "data_examples/test_town04_04/-125/000033.yaml"
+    proj = ProjLidar2Lidar(point_size=1.0)
+    proj.single_radar2lidar(pcd1_path, pcd2_path, yaml_file,
+                    config_key1="lidar_pose0",
+                    config_key2=["radar_pose0","radar_pose1","radar_pose2","radar_pose3"], 
+                    save_path=None, vis_flag=True)
     
 if __name__ == "__main__":
     # test1()
+    # test2()
     test3()
