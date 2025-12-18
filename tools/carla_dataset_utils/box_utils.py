@@ -237,7 +237,7 @@ def create_rotated_box_points(position, scale, rotation,color=(0, 1, 0),offset_d
     return translated_vertices, edges, colors
 
 def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
-                      camera_intrinsics, color=(0, 1, 0)):
+                      camera_intrinsics, color=(0, 255, 0)):
     # The shape of vertices is (3,N)
 
     # Conver 3d points to homogeneous coordinates (4,N)
@@ -249,10 +249,13 @@ def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
     sensor_points = np.dot(world_2_img, world_points)
 
     # Adjust the coordinate system from UE4 to standard camera coordinates
+    # UE4/Carla uses: X=forward, Y=right, Z=up
+    # Camera coordinates need: X=right, Y=down, Z=forward
+    # So we remap: X_cam = Y_carla, Y_cam = -Z_carla, Z_cam = X_carla
     point_in_camera_coords = np.array([
-        sensor_points[1], 
-        sensor_points[2] * -1, 
-        sensor_points[0]])    
+        sensor_points[1],        # X_camera = Y_carla (right)
+        -sensor_points[2],       # Y_camera = -Z_carla (down)
+        sensor_points[0]])       # Z_camera = X_carla (forward)
 
     points_2d = np.dot(camera_intrinsics, point_in_camera_coords)
 
@@ -262,19 +265,9 @@ def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
         points_2d[1, :] / points_2d[2, :],
         points_2d[2, :]])
 
-    # Filter points within the image bounds and in front of the camera
+    # Transpose points_2d for easier indexing
     points_2d = points_2d.T
     image_h, image_w = decode_wh(camera_intrinsics)
-    points_in_canvas_mask = (
-        (points_2d[:, 0] >= 0.0) & (points_2d[:, 0] < image_w) &
-        (points_2d[:, 1] >= 0.0) & (points_2d[:, 1] < image_h) &
-        (points_2d[:, 2] > 0.0)
-    )
-    points_2d = points_2d[points_in_canvas_mask]
-
-    # Extract pixel coordinates and convert to integers
-    u_coord = points_2d[:, 0].astype(int)
-    v_coord = points_2d[:, 1].astype(int)
 
     # Convert image array to PIL Image for drawing
     if isinstance(im_array, np.ndarray):

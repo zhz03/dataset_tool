@@ -12,9 +12,9 @@ import os
 import math
 from datetime import datetime
 from tools.carla_dataset_utils.bbx_projection import decode_yaml
-from tools.carla_dataset_utils.proj_lidar2cam import create_transformation, process_jpeg_to_array
+from tools.carla_dataset_utils.project_lidar2cam import create_transformation, process_jpeg_to_array
 from tools.carla_dataset_utils.box_utils import convert_carla_data_to_box, \
-    create_rotated_box, create_rotated_box_points, proj_points_2_img, save_img
+    create_rotated_box, create_rotated_box_points, proj_points_2_img, save_img, get_K
 
 # Construct rotation matrix
 def rotation_matrix(roll, pitch, yaw):
@@ -329,66 +329,67 @@ def main():
 
 
 # zzl
-def test_bbx():
-    img_path = "/home/zzl/zzl/Multi-Mod_Sensor_Config_Lib/data_dumping/example/2024_11_30_16_15_46/125/camera0_000045.png"
-    yaml_file = "/home/zzl/zzl/Multi-Mod_Sensor_Config_Lib/data_dumping/example/2024_11_30_16_15_46/125/000045.yaml"
-    output_dir = "/home/zzl/zzl/Multi-Mod_Sensor_Config_Lib/data_dumping/example/2024_11_30_16_15_46/"
+def opv2v_bbx_projection():
+    img_path = "/home/carma/dg/dataset_example/test_town04/-125/000032_camera2.png"
+    yaml_file = "/home/carma/dg/dataset_example/test_town04/-125/000032.yaml"
+    output_dir = "/home/carma/dg/results2/bbx2image"
     lidar_pose_list, camera_list, vehicle_dict, pedestrian_dict = decode_yaml(yaml_file)
 
-    lidar_index = 1
-    cam_index = 1
+    lidar_index = 0
+    cam_index = 2
     camera_param = camera_list[cam_index]
-    lidar_cords = lidar_pose_list[lidar_index]
+    # lidar_cords = lidar_pose_list[lidar_index]
     
     cam_cords = camera_param['cords']
     camera_intrinsics = camera_param['intrinsic']
-
 
     im_array = process_jpeg_to_array(img_path)
     _,world_2_camera = create_transformation(cam_cords[0], cam_cords[1], cam_cords[2], \
                                               cam_cords[3], cam_cords[4], cam_cords[5]) 
 
-    print("lidar_cords:", lidar_cords)    
+    # print("lidar_cords:", lidar_cords)    
 
     im_array = process_jpeg_to_array(img_path)
 
-    print("lidar_cords_new:", lidar_cords)
-    lidar_2_world,world_2_lidar = create_transformation(lidar_cords[0], lidar_cords[1], lidar_cords[2], \
-                                            lidar_cords[3], lidar_cords[4], lidar_cords[5])
+    # print("lidar_cords_new:", lidar_cords)
+    # lidar_2_world,world_2_lidar = create_transformation(lidar_cords[0], lidar_cords[1], lidar_cords[2], \
+    #                                         lidar_cords[3], lidar_cords[4], lidar_cords[5])
     # print("---")
 
-    count = 0
+    # Process all vehicles and project their bounding boxes
     for key in vehicle_dict.keys():
-        count += 1
-        if count == 1:
-            vehicle = vehicle_dict[key]
-            location = vehicle["location"]
-            angle =  vehicle["angle"]
-            extent = vehicle["extent"]
-            position, scale, rotation = convert_carla_data_to_box(angle,extent,location)
-            translated_vertices, edges, colors = create_rotated_box_points(position, scale, rotation)
-            
-            points_2_world, _ = create_transformation(position['x'], position['y'], position['z'], \
-                                            angle[3], angle[4], angle[5])
+        vehicle = vehicle_dict[key]
+        # print(f"Processing vehicle: {key}")
+        # print(vehicle)
+        location = vehicle["location"]
+        angle =  vehicle["angle"]
+        extent = vehicle["extent"]
+        position, scale, rotation = convert_carla_data_to_box(angle,extent,location)
+        translated_vertices, edges, colors = create_rotated_box_points(position, scale, rotation)
+        
+        # translated_vertices are already in world coordinates, so we use identity matrix
+        points_2_world = np.eye(4)  # Identity matrix - no transformation needed
 
-            print("translated_vertices:",translated_vertices)
-            print("shape of translated_vertices:",translated_vertices.shape)
+        # print("translated_vertices:",translated_vertices)
+        # print("shape of translated_vertices:",translated_vertices.shape)
 
-            # convert translated_vertices from (N,3) to (3,N)
-            translated_vertices = translated_vertices.T
-            print("shape of translated_vertices:",translated_vertices.shape)
-            print("edges:",edges)
+        # convert translated_vertices from (N,3) to (3,N)
+        translated_vertices = translated_vertices.T
+        # print("shape of translated_vertices:",translated_vertices.shape)
+        # print("edges:",edges)
 
-            im_array_result = proj_points_2_img(im_array, translated_vertices, edges, points_2_world, 
-                              world_2_camera, camera_intrinsics, color=(0, 1, 0))
+        # Project each vehicle's bounding box onto the image
+        im_array = proj_points_2_img(im_array, translated_vertices, edges, points_2_world, 
+                          world_2_camera, camera_intrinsics, color=(0, 255, 0))
 
-            # Generate a timestamp for the filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            save_file_name = f"{output_dir}/{timestamp}.png"
-            save_img(im_array_result, save_file_name)
-            # ! Not yet finished 
+    # Save the final image with all bounding boxes after processing all vehicles
+    # Generate a timestamp for the filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_file_name = f"{output_dir}/{timestamp}.png"
+    save_img(im_array, save_file_name)
+    print(f"All bounding boxes projected and saved to {save_file_name}") 
 
 if __name__ == "__main__":
     # main()
     # project_bounding_box()
-    test_bbx()
+    opv2v_bbx_projection()

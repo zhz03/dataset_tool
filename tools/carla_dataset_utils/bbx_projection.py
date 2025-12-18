@@ -78,7 +78,9 @@ def decode_yaml(yaml_file):
         camera_pose = yaml_param[key]
         camera_list.append(camera_pose)
 
-    if "vehicles" in yaml_param:
+    if "cars" in yaml_param:
+        vehicle_dict = yaml_param["cars"]
+    elif "vehicles" in yaml_param:
         vehicle_dict = yaml_param["vehicles"]
     else:
         vehicle_dict = {}
