@@ -680,9 +680,9 @@ def test21():
                      config_key2="radar_pose1",
                      vis_flag=True)
 def test3():
-    pcd1_path = "data_examples/test_town04_03/-125/000031_lidar0.pcd"
-    pcd2_path = "data_examples/test_town04_04/-125/000031_radar1.pcd"
-    yaml_file = "data_examples/test_town04_04/-125/000033.yaml"
+    pcd1_path = "data_examples/test_town04_05/-125/000031_lidar0.pcd"
+    pcd2_path = "data_examples/test_town04_05/-125/000031_radar1.pcd"
+    yaml_file = "data_examples/test_town04_05/-125/000033.yaml"
     proj = ProjLidar2Lidar(point_size=1.0)
     proj.single_radar2lidar(pcd1_path, pcd2_path, yaml_file,
                     config_key1="lidar_pose0",
