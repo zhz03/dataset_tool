@@ -261,7 +261,7 @@ if __name__ == "__main__":
     #             output_dir =  "/home/carma/dg/results/radar2lidar_3d/" + config_yaml + "/" + str(sensor_id) + "/" + f"{int(frame):06}.png"
     #             main_with_args(root_dir, output_dir, agent, frame, sensor_id, False)
 
-    root_dir = '/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/test/bridgeentry_town07_med_infra_radar_t_c_day_s7'
+    root_dir = '/media/carma/ui_4/data_transfer/data_dumping/new_test_dataset/test_town04'
     agent    = -125
     frame    = 31
-    main_with_args(root_dir, "", agent, frame, 2, True)
+    main_with_args(root_dir, "", agent, frame, 1, True)

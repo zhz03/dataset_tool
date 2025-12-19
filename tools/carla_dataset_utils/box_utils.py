@@ -238,21 +238,20 @@ def create_rotated_box_points(position, scale, rotation,color=(0, 1, 0),offset_d
 
 def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
                       camera_intrinsics, color=(0, 1, 0)):
-    # The shape of vertices is (3,N)
+    # # The shape of vertices is (3,N)
 
-    # Conver 3d points to homogeneous coordinates (4,N)
+    # # Conver 3d points to homogeneous coordinates (4,N)
     vertices_points_hom = np.r_[
         vertices, [np.ones(vertices.shape[1])]]
-    
-    world_points = np.dot(points_2_world, vertices_points_hom)
 
+    world_points = np.dot(points_2_world, vertices_points_hom)
     sensor_points = np.dot(world_2_img, world_points)
 
     # Adjust the coordinate system from UE4 to standard camera coordinates
     point_in_camera_coords = np.array([
-        sensor_points[1], 
-        sensor_points[2] * -1, 
-        sensor_points[0]])    
+        sensor_points[1], #1
+        sensor_points[2] * -1, #2
+        sensor_points[0]])    #0
 
     points_2d = np.dot(camera_intrinsics, point_in_camera_coords)
 
@@ -270,7 +269,8 @@ def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
         (points_2d[:, 1] >= 0.0) & (points_2d[:, 1] < image_h) &
         (points_2d[:, 2] > 0.0)
     )
-    points_2d = points_2d[points_in_canvas_mask]
+    # points_2d = points_2d[points_in_canvas_mask]
+    valid_mask = points_in_canvas_mask # do NOT apply mask
 
     # Extract pixel coordinates and convert to integers
     u_coord = points_2d[:, 0].astype(int)
@@ -291,6 +291,11 @@ def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
     # Loop over edges and draw lines
     for edge in edges:
         idx0, idx1 = edge[0], edge[1]
+
+        # Skip invalid endpoints 
+        if not (valid_mask[idx0] and valid_mask[idx1]):
+            continue
+
         # Get the coordinates of the vertices
         u0, v0 = u_coord[idx0], v_coord[idx0]
         u1, v1 = u_coord[idx1], v_coord[idx1]

@@ -13,7 +13,7 @@ import math
 from datetime import datetime
 from tools.carla_dataset_utils.bbx_projection import decode_yaml
 from tools.carla_dataset_utils.project_lidar2cam import create_transformation, process_jpeg_to_array
-from tools.carla_dataset_utils.box_utils import convert_carla_data_to_box, \
+from tools.carla_dataset_utils.box_utils import get_K, convert_carla_data_to_box, \
     create_rotated_box, create_rotated_box_points, proj_points_2_img, save_img
 
 def load_yaml(file):
@@ -22,7 +22,7 @@ def load_yaml(file):
         return yaml.safe_load(f)
 
 # Construct rotation matrix
-def rotation_matrix(roll, pitch, yaw):
+def rotation_matrix(roll, yaw, pitch):
     Rx = np.array([
         [1, 0, 0],
         [0, np.cos(roll), -np.sin(roll)],
@@ -41,9 +41,12 @@ def rotation_matrix(roll, pitch, yaw):
     return Rz @ Ry @ Rx
 
 def project_bounding_box():
-    yaml_file = "./data_dumping/example/2024_11_30_16_15_46/125/000045.yaml"
-    image_path = "./data_dumping/example/2024_11_30_16_15_46/125/camera1_000045.png"  # Replace with your actual image path
-    output_dir="./data_dumping/example/2024_11_30_16_15_46/bbx_projection"
+    # yaml_file = "./data_dumping/example/2024_11_30_16_15_46/125/000045.yaml"
+    # image_path = "./data_dumping/example/2024_11_30_16_15_46/125/camera1_000045.png"  # Replace with your actual image path
+    # output_dir="./data_dumping/example/2024_11_30_16_15_46/bbx_projection"
+    image_path = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04/-125/000032_camera0.png"
+    yaml_file = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04/-125/000032.yaml"
+    output_dir = "/home/carma/dg/results2/bbx2image"
 
     image_w = 1920 
     image_h = 1080
@@ -181,12 +184,13 @@ def main():
     yaml_data = """
     [Your YAML data here, omitted for brevity]
     """
-    yaml_file = "./data_dumping/example/2024_11_30_16_15_46/125/000045.yaml"
-    image_path = "./data_dumping/example/2024_11_30_16_15_46/125/camera1_000045.png"  # Replace with your actual image path
-    
-    image_w = 1920 
-    image_h = 1080
-    fov = 120
+    img_path = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04/-125/000032_camera0.png"
+    yaml_file = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04/-125/000032.yaml"
+    output_dir = "/home/carma/dg/results2/bbx2image"
+
+    image_w = 600 
+    image_h = 800
+    fov = 100
 
     lidar_pose_list, camera_list, _, _ = decode_yaml(yaml_file)
     K = get_K(image_w, image_h, fov)
@@ -198,6 +202,13 @@ def main():
     print("camera_extrinsic:",camera_extrinsic)
     print("K:",K)
     print("camera_intrinsic:",camera_intrinsic)
+
+    data = load_yaml(yaml_file)
+    unit_types = {'cars','cyclists','pedestrians','trucks'}
+    units = {}
+    for unit_type in unit_types:
+        units.update(data.get(unit_type, {}))
+    vehicle_dict = units
 
     # data = yaml.safe_load(yaml_data)
 
@@ -215,7 +226,7 @@ def main():
 
     for key in key_list:
         print("--------")
-        print("key:",key)
+        # print("key:",key)
         vehicle = vehicle_dict[key]
 
         # vehicle = vehicle_dict[key_list[0]]
@@ -247,9 +258,9 @@ def main():
         # roll, yaw, pitch = vehicle_rotation
         x, y, z = vehicle_location
         roll, yaw, pitch = vehicle_rotation
-        print("roll:",roll)
-        print("yaw:",yaw)
-        print("pitch:",pitch)
+        # print("roll:",roll)
+        # print("yaw:",yaw)
+        # print("pitch:",pitch)
         # Uncomment below lines if angles are in degrees
         roll = math.radians(roll)
         pitch = math.radians(pitch)
@@ -257,8 +268,8 @@ def main():
 
         R = rotation_matrix(roll, pitch, yaw)
         veh2world,world2veh = create_transformation(x, y, z, roll, yaw, pitch)
-        print("R:",R)
-        print("veh2world:",veh2world)
+        # print("R:",R)
+        # print("veh2world:",veh2world)
 
         # Rotate and translate the vertices
         corners_3D_world = np.dot(R, corners_3D)
@@ -321,7 +332,7 @@ def main():
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
                 
-                output_dir = "./data_dumping/example/2024_11_30_16_15_46/bbx_projection"
+                # output_dir = "./data_dumping/example/2024_11_30_16_15_46/bbx_projection"
                 
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
@@ -329,15 +340,18 @@ def main():
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 file_name = f"{output_dir}/{timestamp}.png"
 
-                cv2.imwrite('projected_bounding_box.jpg', image)
+                cv2.imwrite(output_dir, image)
 
 
 
 # zzl
 def test_bbx():
-    img_path = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection1_4cam_radar/-125/000031_camera0.png"
-    yaml_file = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection1_4cam_radar/-125/000031.yaml"
-    output_dir = "/home/carma/dg/results/bbx2image"
+    img_path = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04/-125/000032_camera2.png"
+    yaml_file = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04/-125/000032.yaml"
+    output_dir = "/home/carma/dg/results2/bbx2image"
+    lidar_index = 0
+    cam_index = 2
+
     lidar_pose_list, camera_list, _, _ = decode_yaml(yaml_file)
     # get roadside units
     data = load_yaml(yaml_file)
@@ -347,37 +361,39 @@ def test_bbx():
         units.update(data.get(unit_type, {}))
     vehicle_dict = units
 
-    lidar_index = 0
-    cam_index = 0
     camera_param = camera_list[cam_index]
     lidar_cords = lidar_pose_list[lidar_index]
     
     cam_cords = camera_param['cords']
     camera_intrinsics = camera_param['intrinsic']
+    print('cam_cords:',cam_cords)
+    print("camera_intrinsics:",camera_intrinsics)
 
-
-    im_array = process_jpeg_to_array(img_path)
-    _,world_2_camera = create_transformation(cam_cords[0], cam_cords[1], cam_cords[2], \
-                                              cam_cords[3], cam_cords[4], cam_cords[5]) 
+    #im_array = process_jpeg_to_array(img_path)
+    _,world_2_camera = create_transformation(*cam_cords)
 
     print("lidar_cords:", lidar_cords)    
-
+    
     im_array = process_jpeg_to_array(img_path)
 
-    print("lidar_cords_new:", lidar_cords)
+    #print("lidar_cords_new:", lidar_cords)
     lidar_2_world,world_2_lidar = create_transformation(lidar_cords[0], lidar_cords[1], lidar_cords[2], \
                                             lidar_cords[3], lidar_cords[4], lidar_cords[5])
     # print("---")
 
     count = 0
+
     for key in vehicle_dict.keys():
         count += 1
-        if count == 1:
+        if count == 30:
+            print(key)
             vehicle = vehicle_dict[key]
+            print("vehicle:",vehicle)
             location = vehicle["location"]
             angle =  vehicle["angle"]
             extent = vehicle["extent"]
             position, scale, rotation = convert_carla_data_to_box(angle,extent,location)
+            # print(position)
             translated_vertices, edges, colors = create_rotated_box_points(position, scale, rotation)
             
             points_2_world, _ = create_transformation(position['x'], position['y'], position['z'], \

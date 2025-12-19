@@ -196,8 +196,8 @@ def project_save_single_radar_frame(img_file, radar_file, yaml_file, output_dir,
                             K, radar_2_world, world_2_camera, output_dir, frame, text=str(radar_pos[4]))
 
 if __name__ == "__main__":
-    root = "/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/test/"
-    config_yamls = ["bridgeentry_town07_med_infra_radar_t_c_day_s7"]
+    root = "/media/carma/ui_4/data_transfer/data_dumping/new_test_dataset/"
+    config_yamls = ["test_town04"]
 
     for config_yaml in config_yamls:
         for i in range(31, 51):

@@ -917,7 +917,7 @@ def main_with_args(root_dir, agent, frame, sensor_type, sensor_id):
 if __name__ == "__main__":
     # root_dir = '/data1/sensor_config_data/testset/v2xset/2021_08_20_21_48_35'
     # root_dir = '/home/handsomeyun/Yun/Multi-Mod_Sensor_Config_Lib/data_dumping/town10/'
-    root_dir = '/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/confirm/town05_intersection3_4cam_radar'
+    root_dir = '/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04'
     agent    = -125
     frame    = 41
     sensor_type = "lidar"
