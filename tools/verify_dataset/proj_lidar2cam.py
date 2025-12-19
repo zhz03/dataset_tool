@@ -5,14 +5,16 @@ Code description.
 # Author: Zhaoliang Zheng <zhz03@g.ucla.edu>
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
-import os
+import os, sys
+sys.path.insert(0, os.path.abspath("..")) # .../dataset_tool/tools
+
 import carla
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
-from tools.utils.yaml_utils import load_yaml
-from tools.verify_dataset.pcd_utils import PCLoader
-from tools.verify_dataset.img_utils import ImageLoader
+from utils.yaml_utils import load_yaml
+from verify_dataset.pcd_utils import PCLoader
+from verify_dataset.img_utils import ImageLoader
 
 class ProjLidar2Cam:
     """
@@ -278,10 +280,10 @@ def test1():
     Test function to verify the projection of LiDAR points onto a camera image.
     """
     proj = ProjLidar2Cam(point_size=1.0)
-    img_path = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/000032_camera0.png"
-    pcd_path = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/000032_lidar0.pcd"
-    yaml_path = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/000032.yaml"
-    output_img_path = "/home/zhaoliang/zzl/dataset_tool/data_examples/m2i_radar_dataset/check_data"
+    #img_path = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset_discard/train/000032_camera0.png"
+    #pcd_path = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset_discard/train/000032_lidar0.pcd"
+    yaml_path = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset_discard/train/bridgeentry_town07_dense_infra_radar_t_c_day_s16/-125/000032.yaml"
+    output_img_path = "/home/carma/dg/results_new"
 
     # proj.single_img_lidar_proj(img_path, pcd_path, yaml_path, 
     #                            output_img_path=None,
