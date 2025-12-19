@@ -47,7 +47,9 @@ def create_transformation(x, y, z, roll, yaw, pitch):
 def to_homogeneous_matrix(x, y, z, roll, yaw, pitch):
     """
     Convert translation and rotation (Euler angles) into a 4x4 homogeneous transformation matrix.
-
+    
+    Matches CARLA's coordinate system and rotation order (Roll, Pitch, Yaw).
+    
     :param x: Translation in X.
     :param y: Translation in Y.
     :param z: Translation in Z.
@@ -56,37 +58,29 @@ def to_homogeneous_matrix(x, y, z, roll, yaw, pitch):
     :param pitch: Rotation about Y-axis (degrees).
     :return: 4x4 NumPy array representing the homogeneous transformation matrix.
     """
-    # Convert degrees to radians
-    roll = np.radians(roll)
-    pitch = np.radians(pitch)
-    yaw = np.radians(yaw)
+    c_y = np.cos(np.radians(yaw))
+    s_y = np.sin(np.radians(yaw))
+    c_r = np.cos(np.radians(roll))
+    s_r = np.sin(np.radians(roll))
+    c_p = np.cos(np.radians(pitch))
+    s_p = np.sin(np.radians(pitch))
 
-    # Rotation matrix components
-    Rx = np.array([
-        [1, 0, 0],
-        [0, np.cos(roll), -np.sin(roll)],
-        [0, np.sin(roll), np.cos(roll)]
-    ])
-    Ry = np.array([
-        [np.cos(pitch), 0, np.sin(pitch)],
-        [0, 1, 0],
-        [-np.sin(pitch), 0, np.cos(pitch)]
-    ])
-    Rz = np.array([
-        [np.cos(yaw), -np.sin(yaw), 0],
-        [np.sin(yaw), np.cos(yaw), 0],
-        [0, 0, 1]
-    ])
+    matrix = np.eye(4)
+    matrix[0, 3] = x
+    matrix[1, 3] = y
+    matrix[2, 3] = z
 
-    # Combined rotation matrix (Rz * Ry * Rx)
-    R = Rz @ Ry @ Rx
+    matrix[0, 0] = c_p * c_y
+    matrix[0, 1] = c_y * s_p * s_r - s_y * c_r
+    matrix[0, 2] = -c_y * s_p * c_r - s_y * s_r
+    matrix[1, 0] = s_y * c_p
+    matrix[1, 1] = s_y * s_p * s_r + c_y * c_r
+    matrix[1, 2] = -s_y * s_p * c_r + c_y * s_r
+    matrix[2, 0] = s_p
+    matrix[2, 1] = -c_p * s_r
+    matrix[2, 2] = c_p * c_r
 
-    # Create the 4x4 homogeneous transformation matrix
-    T = np.eye(4)  # Initialize as identity matrix
-    T[:3, :3] = R  # Top-left 3x3 block is the rotation matrix
-    T[:3, 3] = [x, y, z]  # Top-right 3x1 block is the translation vector
-
-    return T
+    return matrix
 
 
 

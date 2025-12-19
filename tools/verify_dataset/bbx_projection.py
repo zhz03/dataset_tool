@@ -9,8 +9,46 @@ visualize the projected bounding boxes in the lidar frame.
 import os
 import numpy as np
 import open3d as o3d
+import re
+import yaml
+from datetime import datetime
+# from omegaconf import OmegaConf
 
-from tools.utils.yaml_utils import load_yaml
+def load_yaml(file):
+    """
+    Load yaml file and return a dictionary.
+    Parameters
+    ----------
+    file : string
+        yaml file path.
+
+    Returns
+    -------
+    param : dict
+        A dictionary that contains defined parameters.
+    """
+
+    stream = open(file, 'r')
+    loader = yaml.Loader
+    loader.add_implicit_resolver(
+        u'tag:yaml.org,2002:float',
+        re.compile(u'''^(?:
+         [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+        |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+        |\\.[0-9_]+(?:[eE][-+][0-9]+)?
+        |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
+        |[-+]?\\.(?:inf|Inf|INF)
+        |\\.(?:nan|NaN|NAN))$''', re.X),
+        list(u'-+0123456789.'))
+    param = yaml.load(stream, Loader=loader)
+
+    # load current time for data dumping and evaluation
+    current_time = datetime.now()
+    current_time = current_time.strftime("%Y_%m_%d_%H_%M_%S")
+
+    param['current_time'] = current_time
+
+    return param
 
 
 def global_to_local(global_pos, lidar_pose):
@@ -57,7 +95,7 @@ def decode_yaml(yaml_file):
     yaml_param = load_yaml(yaml_file)
     # get the key of yaml_param
     key_list = list(yaml_param.keys())
-    #print("key:",key_list)
+    print("key:",key_list)
 
     lidar_key_list = []
     camera_key_list = []
@@ -65,7 +103,7 @@ def decode_yaml(yaml_file):
     for key in key_list:
         if "lidar_pose" in key:
             lidar_key_list.append(key)
-        if "camera" in key or "cam" in key:
+        if "camera" in key:
             camera_key_list.append(key)
     
     lidar_pose_list = []
@@ -78,17 +116,10 @@ def decode_yaml(yaml_file):
         camera_pose = yaml_param[key]
         camera_list.append(camera_pose)
 
-    if "cars" in yaml_param:
-        vehicle_dict = yaml_param["cars"]
-    elif "vehicles" in yaml_param:
-        vehicle_dict = yaml_param["vehicles"]
-    else:
-        vehicle_dict = {}
-    if "pedestrians" in yaml_param:
-        pedestrian_dict = yaml_param["pedestrians"]
-    else:
-        pedestrian_dict = {}
-
+    # vehicle_dict = yaml_param["vehicles"]
+    vehicle_dict = yaml_param["cars"]
+    # pedestrian_dict = yaml_param["pedestrians"]
+    pedestrian_dict = None
 
     return lidar_pose_list, camera_list, vehicle_dict, pedestrian_dict
 
@@ -121,4 +152,3 @@ if __name__ == "__main__":
 
 
         
-

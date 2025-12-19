@@ -9,7 +9,6 @@ import open3d as o3d
 import numpy as np
 from scipy.spatial.transform import Rotation
 from PIL import Image, ImageDraw
-from tools.carla_dataset_utils import common_utils
 
 def get_K(image_w, image_h, fov):
     # Build the K projection matrix:
@@ -113,7 +112,7 @@ def convert_carla_data_to_box(angle,extent,location):
     return position, scale, rotation
 
 
-def create_rotated_box(position, scale, rotation,color=(0, 1, 0),offset_deg=0):
+def create_rotated_box(position, scale, rotation,color=(0, 1, 0),offset_deg=0, class_type="vehicles"):
     """Create a 3D rotated box represented as a LineSet in 3D space.
 
     This function generates a 3D rotated box with specified position, scale, and rotation, and
@@ -154,8 +153,10 @@ def create_rotated_box(position, scale, rotation,color=(0, 1, 0),offset_deg=0):
     rotated_vertices = np.dot(scaled_vertices, rotation_matrix.T)
     
     # Apply translation
-    translated_vertices = rotated_vertices + np.array([position["x"], position["y"], position["z"] + scale["z"]/2])
-
+    if class_type=="vehicles" or class_type=="cars" or class_type=="trucks" or class_type=="cyclists":
+        translated_vertices = rotated_vertices + np.array([position["x"], position["y"], position["z"] + scale["z"]/2])
+    else:
+        translated_vertices = rotated_vertices + np.array([position["x"], position["y"], position["z"]])
     # Apply global rotation 
     # rotation_matrix = Rotation.from_euler('xyz', [math.degrees(rotation["x"]), math.degrees(rotation["y"]), math.degrees(rotation["z"])], degrees=True).as_matrix()
     # rotation_matrix = Rotation.from_euler('xyz', [rotation["x"], rotation["y"], rotation["z"]], degrees=True).as_matrix()
@@ -237,24 +238,22 @@ def create_rotated_box_points(position, scale, rotation,color=(0, 1, 0),offset_d
     return translated_vertices, edges, colors
 
 def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
-                      camera_intrinsics, color=(0, 255, 0)):
+                      camera_intrinsics, color=(0, 1, 0)):
     # The shape of vertices is (3,N)
 
-    # # Conver 3d points to homogeneous coordinates (4,N)
+    # Conver 3d points to homogeneous coordinates (4,N)
     vertices_points_hom = np.r_[
         vertices, [np.ones(vertices.shape[1])]]
-
+    
     world_points = np.dot(points_2_world, vertices_points_hom)
+
     sensor_points = np.dot(world_2_img, world_points)
 
     # Adjust the coordinate system from UE4 to standard camera coordinates
-    # UE4/Carla uses: X=forward, Y=right, Z=up
-    # Camera coordinates need: X=right, Y=down, Z=forward
-    # So we remap: X_cam = Y_carla, Y_cam = -Z_carla, Z_cam = X_carla
     point_in_camera_coords = np.array([
-        sensor_points[1],        # X_camera = Y_carla (right)
-        -sensor_points[2],       # Y_camera = -Z_carla (down)
-        sensor_points[0]])       # Z_camera = X_carla (forward)
+        sensor_points[1], 
+        sensor_points[2] * -1, 
+        sensor_points[0]])    
 
     points_2d = np.dot(camera_intrinsics, point_in_camera_coords)
 
@@ -264,9 +263,19 @@ def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
         points_2d[1, :] / points_2d[2, :],
         points_2d[2, :]])
 
-    # Transpose points_2d for easier indexing
+    # Filter points within the image bounds and in front of the camera
     points_2d = points_2d.T
     image_h, image_w = decode_wh(camera_intrinsics)
+    points_in_canvas_mask = (
+        (points_2d[:, 0] >= 0.0) & (points_2d[:, 0] < image_w) &
+        (points_2d[:, 1] >= 0.0) & (points_2d[:, 1] < image_h) &
+        (points_2d[:, 2] > 0.0)
+    )
+    points_2d = points_2d[points_in_canvas_mask]
+
+    # Extract pixel coordinates and convert to integers
+    u_coord = points_2d[:, 0].astype(int)
+    v_coord = points_2d[:, 1].astype(int)
 
     # Convert image array to PIL Image for drawing
     if isinstance(im_array, np.ndarray):
@@ -283,11 +292,6 @@ def proj_points_2_img(im_array, vertices, edges, points_2_world, world_2_img,
     # Loop over edges and draw lines
     for edge in edges:
         idx0, idx1 = edge[0], edge[1]
-
-        # Skip invalid endpoints 
-        if not (valid_mask[idx0] and valid_mask[idx1]):
-            continue
-
         # Get the coordinates of the vertices
         u0, v0 = u_coord[idx0], v_coord[idx0]
         u1, v1 = u_coord[idx1], v_coord[idx1]
@@ -321,118 +325,6 @@ def save_img(im_array_result, save_path):
     # Save the image to the specified path
     image.save(save_path)
     print(f"Image saved to {save_path}")
-
-def boxes_to_corners2d(boxes3d, order):
-    """
-      0 -------- 1
-      |          |
-      |          |
-      |          |
-      3 -------- 2
-    Parameters
-    __________
-    boxes3d: np.ndarray or torch.Tensor
-        (N, 7) [x, y, z, dx, dy, dz, heading], (x, y, z) is the box center.
-
-    order : str
-        'lwh' or 'hwl'
-
-    Returns:
-        corners2d: np.ndarray or torch.Tensor
-        (N, 4, 3), the 4 corners of the bounding box.
-
-    """
-    corners3d = boxes_to_corners_3d(boxes3d, order)
-    corners2d = corners3d[:, :4, :]
-    return corners2d
-
-
-def boxes2d_to_corners2d(boxes2d, order="lwh"):
-    """
-      0 -------- 1
-      |          |
-      |          |
-      |          |
-      3 -------- 2
-    Parameters
-    __________
-    boxes2d: np.ndarray or torch.Tensor
-        (..., 5) [x, y, dx, dy, heading], (x, y) is the box center.
-
-    order : str
-        'lwh' or 'hwl'
-
-    Returns:
-        corners2d: np.ndarray or torch.Tensor
-        (..., 4, 2), the 4 corners of the bounding box.
-
-    """
-    assert order == "lwh", \
-        "boxes2d_to_corners_2d only supports lwh order for now."
-    boxes2d, is_numpy = common_utils.check_numpy_to_torch(boxes2d)
-    template = boxes2d.new_tensor((
-        [1, -1], [1, 1], [-1, 1], [-1, -1]
-    )) / 2
-    input_shape = boxes2d.shape
-    boxes2d = boxes2d.view(-1, 5)
-    corners2d = boxes2d[:, None, 2:4].repeat(1, 4, 1) * template[None, :, :]
-    corners2d = common_utils.rotate_points_along_z_2d(corners2d.view(-1, 2),
-                                                      boxes2d[:,
-                                                      4].repeat_interleave(
-                                                          4)).view(-1, 4,
-                                                                   2)
-    corners2d += boxes2d[:, None, 0:2]
-    corners2d = corners2d.view(*(input_shape[:-1]), 4, 2)
-    return corners2d
-
-
-def boxes_to_corners_3d(boxes3d, order):
-    """
-        4 -------- 5
-       /|         /|
-      7 -------- 6 .
-      | |        | |
-      . 0 -------- 1
-      |/         |/
-      3 -------- 2
-    Parameters
-    __________
-    boxes3d: np.ndarray or torch.Tensor
-        (N, 7) [x, y, z, dx, dy, dz, heading], (x, y, z) is the box center.
-
-    order : str
-        'lwh' or 'hwl'
-
-    Returns:
-        corners3d: np.ndarray or torch.Tensor
-        (N, 8, 3), the 8 corners of the bounding box.
-
-    """
-    # ^ z
-    # |
-    # |
-    # | . x
-    # |/
-    # +-------> y
-
-    boxes3d, is_numpy = common_utils.check_numpy_to_torch(boxes3d)
-    boxes3d_ = boxes3d
-
-    if order == 'hwl':
-        boxes3d_ = boxes3d[:, [0, 1, 2, 5, 4, 3, 6]]
-
-    template = boxes3d_.new_tensor((
-        [1, -1, -1], [1, 1, -1], [-1, 1, -1], [-1, -1, -1],
-        [1, -1, 1], [1, 1, 1], [-1, 1, 1], [-1, -1, 1],
-    )) / 2
-
-    corners3d = boxes3d_[:, None, 3:6].repeat(1, 8, 1) * template[None, :, :]
-    corners3d = common_utils.rotate_points_along_z(corners3d.view(-1, 8, 3),
-                                                   boxes3d_[:, 6]).view(-1, 8,
-                                                                        3)
-    corners3d += boxes3d_[:, None, 0:3]
-
-    return corners3d.numpy() if is_numpy else corners3d
 
 if __name__ == "__main__":
     pass

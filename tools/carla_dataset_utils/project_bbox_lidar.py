@@ -735,12 +735,16 @@ def parse_vehicle_bbox(vehicle_info):
     location = vehicle_info['location']  # [x_world, y_world, z_world]
     extent = vehicle_info['extent']     # [l, w, h] (half-size or full-size depends on dataset)
     angle = vehicle_info['angle']       # [roll, yaw, pitch]
+    center = vehicle_info['center']     # [x, y, z]
 
     # Extract values
     x, y, z = location
+    cx, cy, cz = center
     l, w, h = extent
     roll, yaw, pitch = angle  # YAML order: roll, yaw, pitch
 
+    # in carla the bbx center is not ground
+    # z = z + cz / 2
     # Convert yaw to radians
     yaw = np.deg2rad(yaw)
 
@@ -850,8 +854,20 @@ def transform_bbox_world_to_lidar(bbox_world, T_inv):
 def main(yaml_file, pcd_file, sensor_type, sensor_id):
     # (1) Load data
     data = load_yaml(yaml_file)
-    sensor_id = sensor_type + '_pose' + str(sensor_id)
-    lidar_pose = data[sensor_id]  # LiDAR pose in the world frame [x, y, z, roll, pitch, yaw]
+    if "lidar_pose0" in data.keys():
+        lidar_pose_key = "lidar_pose0"
+    elif "lidar_pose" in data.keys():
+        lidar_pose_key = "lidar_pose"
+    else:
+        raise ValueError("No lidar pose found in yaml file")
+    lidar_pose = data[lidar_pose_key]  # LiDAR pose in the world frame [x, y, z, roll, pitch, yaw]
+
+    if "cars" in data.keys():
+        vehicles = data.get('cars', {})
+    elif "vehicles" in data.keys():
+        vehicles = data.get('vehicles', {})
+    else:
+        raise ValueError("No vehicles found in yaml file")
 
     # Load LiDAR points (already in LiDAR frame)
     pcd_xyz = load_pcd(pcd_file)  # Shape: (N, 3)
@@ -913,8 +929,7 @@ def main_with_args(root_dir, agent, frame, sensor_type, sensor_id):
 
     main(yaml_file, pcd_file, sensor_type, sensor_id)
 
-
-if __name__ == "__main__":
+def test1():
     # root_dir = '/data1/sensor_config_data/testset/v2xset/2021_08_20_21_48_35'
     # root_dir = '/home/handsomeyun/Yun/Multi-Mod_Sensor_Config_Lib/data_dumping/town10/'
     root_dir = '/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04'
@@ -923,4 +938,12 @@ if __name__ == "__main__":
     sensor_type = "lidar"
     sensor_id = 0
 
-    main_with_args(root_dir, agent, frame, sensor_type, sensor_id)
+    main_with_args(root_dir, agent, frame)
+
+def test2():
+    yaml_file = "data_examples/test_town04_05/-125/000031.yaml"
+    pcd_file = "data_examples/test_town04_05/-125/000031_lidar0.pcd"
+    main(yaml_file, pcd_file)
+
+if __name__ == "__main__":
+    test2()
