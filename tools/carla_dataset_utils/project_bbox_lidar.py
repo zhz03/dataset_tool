@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 
 from matplotlib import cm
 
-from tools.carla_dataset_utils import box_utils
-from tools.carla_dataset_utils import common_utils
+import box_utils
+import common_utils
 
 VIRIDIS = np.array(cm.get_cmap('plasma').colors)
 VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
@@ -932,13 +932,13 @@ def main_with_args(root_dir, agent, frame, sensor_type, sensor_id):
 def test1():
     # root_dir = '/data1/sensor_config_data/testset/v2xset/2021_08_20_21_48_35'
     # root_dir = '/home/handsomeyun/Yun/Multi-Mod_Sensor_Config_Lib/data_dumping/town10/'
-    root_dir = '/media/carma/aebdc025-05c3-40fe-a0e9-f424cfe2ae03/home/mobility/data_dumping/radar_dataset/train/test_town04'
+    root_dir = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset_discard/train/bridgeentry_town07_dense_infra_radar_t_c_day_s16"
     agent    = -125
     frame    = 41
     sensor_type = "lidar"
     sensor_id = 0
 
-    main_with_args(root_dir, agent, frame)
+    main_with_args(root_dir, agent, frame, sensor_type, sensor_id)
 
 def test2():
     yaml_file = "data_examples/test_town04_05/-125/000031.yaml"
@@ -946,4 +946,4 @@ def test2():
     main(yaml_file, pcd_file)
 
 if __name__ == "__main__":
-    test2()
+    test1()

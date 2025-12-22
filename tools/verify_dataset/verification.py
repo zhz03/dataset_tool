@@ -5,13 +5,16 @@ Code description.
 # Author: Zhaoliang Zheng <zhz03@g.ucla.edu>
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
-import os
+import os, sys
+sys.path.insert(0, os.path.abspath("..")) # .../dataset_tool/tools
+
 import numpy as np
-from tools.utils.yaml_utils import load_yaml
-from tools.verify_dataset.proj_lidar2cam import ProjLidar2Cam
-from tools.verify_dataset.proj_bbx2lidar import ProjBBX2Lidar
-from tools.verify_dataset.proj_lidar2lidar import ProjLidar2Lidar
-from tools.verify_dataset.proj_bbx2cam import ProjBBX2Cam
+from utils.yaml_utils import load_yaml
+from verify_dataset.proj_lidar2cam import ProjLidar2Cam
+from verify_dataset.proj_bbx2lidar import ProjBBX2Lidar
+from verify_dataset.proj_radar2lidar import ProjLidar2Lidar
+from verify_dataset.proj_bbx2cam import ProjBBX2Cam
+from verify_dataset.proj_radar2cam import ProjRadar2Cam
 
 def get_other_files_v2xset(yaml_file, index= 0): # v2xset data
     lidar_file = yaml_file.replace(".yaml", ".pcd")
@@ -134,10 +137,11 @@ def test1_batch_lidar2cam():
 
 def test2_single_radar2lidar():
     sensor_index = 0
-    root_dir = "data_examples/i2i_radar/roundabout_town03_med/-125"
-    save_dir = root_dir + f"_radar2lidar_{sensor_index}"
-    yaml_file = "data_examples/i2i_radar/roundabout_town03_med/-125/000031.yaml"
-    yaml_file1= "data_examples/i2i_radar/roundabout_town03_med/-125/000031.yaml"
+    root_dir = "/home/carma/dg/results_new"
+    save_dir = f"{root_dir}/radar2lidar_{sensor_index}"
+    print(save_dir)
+    yaml_file = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125/000031.yaml"
+    yaml_file1= "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125/000031.yaml"
 
     test_case(yaml_file,yaml_file2=yaml_file1, save_dir = save_dir, 
                     dataset_type="infraset", project_type="radar2lidar",
@@ -169,10 +173,75 @@ def test5_single_bbx2lidar():
     test_case(yaml_file, yaml_file2=yaml_file, save_dir=None,
              dataset_type="v2xset", project_type="bbx2lidar",
              sensor_index=sensor_index,bbx_class="vehicles")
+    
+def test_many(input_root, output_root, classes, start_frame, end_frame, single_frame, flags):
+    # lidar2cam
+    if flags["lidar2cam"]:
+        lidar2cam_proj = ProjLidar2Cam(point_size=1.0)
+        for frame in range(start_frame, end_frame + 1):
+            for cam in range(0, 4):
+                yaml_path = f"{input_root}/{frame:06}.yaml"
+                output_img_path = f"{output_root}/lidar2cam/camera{cam}"
+                lidar2cam_proj.single_img_lidar_proj_smart_index(yaml_path, index=cam, vis_flag=False, output_dir=output_img_path)
+    
+    # radar2cam
+    if flags["radar2cam"]:
+        radar2cam_proj = ProjRadar2Cam(point_size=0.7)
+        for frame in range(start_frame, end_frame + 1):
+            for cam in range(0, 4):
+                yaml_path = f"{input_root}/{frame:06}.yaml"
+                output_img_path = f"{output_root}/radar2cam/camera{cam}"
+                radar2cam_proj.single_img_all_radar_proj_smart_index(yaml_path, index=cam, vis_flag=False, output_dir=output_img_path)
+                radar2cam_proj.single_img_radar_proj_smart_index(yaml_path, index=cam, vis_flag=False, output_dir=output_img_path)
+            
+    # bbx2cam
+    if flags["bbx2cam"]:
+        bbx2cam_proj = ProjBBX2Cam(line_width=2)
+        for frame in range(start_frame, end_frame + 1):
+            for cam in range(0, 4):
+                img_path = f"{input_root}/{frame:06}_camera{cam}.png"
+                yaml_path = f"{input_root}/{frame:06}.yaml"
+                output_img_path = f"{output_root}/bbx2cam/camera{cam}"
+                bbx2cam_proj.single_img_multi_bbx_proj(img_path, yaml_path, save_path=output_img_path, cam_key=f"camera{cam}", bbx_keys=classes, vis_flag=False)
+    
+    # radar2lidar
+    if flags["radar2lidar"]:
+        lidar_path = f"{input_root}/{single_frame:06}_lidar0.pcd"
+        radar_path = f"{input_root}/{single_frame:06}_radar0.pcd"
+        yaml_file = f"{input_root}/{single_frame:06}.yaml"
+        output_img_path = f"{output_root}/radar2lidar"
+
+        if not os.path.isdir(f"{output_root}/radar2lidar"):
+            os.makedirs(f"{output_root}/radar2lidar")
+
+        radar_keys = ["radar_pose0","radar_pose1","radar_pose2","radar_pose3"]
+        radar2lidar_proj = ProjLidar2Lidar(point_size=1.0)
+        radar2lidar_proj.single_radar2lidar(lidar_path, radar_path, yaml_file, config_key1="lidar_pose0", config_key2=radar_keys, save_path=f"{output_img_path}/{single_frame:06}.pcd", vis_flag=False)
+
+    # bbx2lidar
+    if flags["bbx2lidar"]:
+        lidar_path = f"{input_root}/{single_frame:06}_lidar0.pcd"
+        yaml_file = f"{input_root}/{single_frame:06}.yaml"
+        output_img_path = f"{output_root}/bbx2lidar"
+    
+    if not os.path.isdir(output_img_path):
+        os.makedirs(output_img_path)
+
+    bbx2lidar_proj = ProjBBX2Lidar()
+    bbx2lidar_proj.proj_bbx2lidar(yaml_file, lidar_path, bbx_classes=classes, lidar_key="lidar_pose0", save_path=f"{output_img_path}/{single_frame:06}.png", vis_Flag=True)
 
 if __name__ == "__main__":
     # test1_batch_lidar2cam()
-    test2_single_radar2lidar()
+    # test2_single_radar2lidar()
     # test3_single_bbx2cam()
     # test4_single_radar2lidar_batch()
     # test5_single_bbx2lidar()
+    input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
+    output_root = "/home/carma/dg/results_new/town05_intersection3_4cam_radar"
+    classes = ["cars", "trucks","pedestrians", "cyclists"]
+    batch_start_frame = 250
+    batch_end_frame = 300
+    single_frame = 148
+    flags = {"lidar2cam": False, "radar2cam": False, "bbx2cam": True, "radar2lidar": True, "bbx2lidar": True}
+    test_many(input_root, output_root, classes, batch_start_frame, batch_end_frame, single_frame, flags)
+

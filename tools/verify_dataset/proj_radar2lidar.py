@@ -4,12 +4,14 @@ Code description.
 """
 # Author: Zhaoliang Zheng <zhz03@g.ucla.edu>
 # License: TDG-Attribution-NonCommercial-NoDistrib
-import os
+import os, sys
+sys.path.insert(0, os.path.abspath("..")) # .../dataset_tool/tools
+
 import open3d as o3d
 import numpy as np
 import carla
-from tools.verify_dataset.pcd_utils import PCLoader
-from tools.utils.yaml_utils import load_yaml
+from verify_dataset.pcd_utils import PCLoader
+from utils.yaml_utils import load_yaml
 
 class ProjLidar2Lidar:
     """
@@ -129,15 +131,15 @@ class ProjLidar2Lidar:
         self.vis.run()
         self.vis.destroy_window()
 
-    def single_radar2lidar(self, pcd_path1, radar_path, yaml_file,
-                    config_key1="lidar_pose1",
+    def single_radar2lidar(self, lidar_path, radar_path, yaml_file,
+                    config_key1="lidar_pose0",
                     config_key2=["radar_pose0","radar_pose1","radar_pose2","radar_pose3"], 
                     save_path=None, vis_flag=False):
         """
         Project multiple radar point clouds onto a single LiDAR frame.
         
         Args:
-            pcd_path1: Path to the LiDAR point cloud file
+            lidar_path: Path to the LiDAR point cloud file
             radar_path: Path to the radar point cloud file, example: "/home/zhaoliang/zhaoliang/example_data/fiveway_town03_med_infraset/-125/000035_radar0.pcd"
             yaml_file: Path to the YAML file containing sensor poses
             config_key1: Key for the LiDAR pose in the YAML file
@@ -146,15 +148,15 @@ class ProjLidar2Lidar:
             vis_flag: Whether to visualize the result
         """
         # Load LiDAR point cloud
-        pcd1 = self.load_point_cloud(pcd_path1, mode="xyzi")
-        pcd1.paint_uniform_color([1, 0, 0])  # Red for LiDAR
+        lidar_pcd = self.load_point_cloud(lidar_path, mode="xyzi")
+        lidar_pcd.paint_uniform_color([1, 0, 0])  # Red for LiDAR
 
         # Load LiDAR pose
         lidar_pose = self.load_pcd_pose(yaml_file, config_key=config_key1)
         print(f"Loaded LiDAR pose: {lidar_pose}")
 
         # Initialize combined point cloud with LiDAR points
-        combined_pcd = pcd1
+        combined_pcd = lidar_pcd
 
         # Process each radar point cloud
         for i, radar_key in enumerate(config_key2):
@@ -168,8 +170,8 @@ class ProjLidar2Lidar:
                 radar_file_name = os.path.basename(radar_path).split("_")[0] # 000035
 
                 radar_name = radar_key.replace("radar_pose", "radar")
-                pcd_path2 = os.path.join(radar_path_dir, f"{radar_file_name}_{radar_name}.pcd")
-                print(f"radar_path2: {pcd_path2}")
+                radar_path2 = os.path.join(radar_path_dir, f"{radar_file_name}_{radar_name}.pcd")
+                print(f"radar_path2: {radar_path2}")
 
 
                 # Construct transformation matrix from radar to LiDAR
@@ -191,7 +193,7 @@ class ProjLidar2Lidar:
                 tf_matrix_new = self.convert_pose2tf(rel_pos)
 
                 # Load and transform radar point cloud
-                radar_pcd = self.load_point_cloud(pcd_path2, mode="xyzi")
+                radar_pcd = self.load_point_cloud(radar_path2, mode="xyzi")
                 # Assign different colors to each radar point cloud
                 colors = [
                     [0, 1, 0],    # Green
@@ -223,7 +225,6 @@ class ProjLidar2Lidar:
         if save_path is not None:
             # self.save_point_cloud(combined_pcd, save_path)
             o3d.io.write_point_cloud(save_path, combined_pcd, write_ascii=True)
-
         else:
             print("No save path provided, skipping save operation.")
 
@@ -269,9 +270,10 @@ class ProjLidar2Lidar:
         combined_pcd = self.combine_point_clouds(pcd1, transformed_pcd2)
         # Save combined point cloud
         if save_path is not None:
-            self.save_point_cloud(combined_pcd, save_path)
+            o3d.io.write_point_cloud(save_path, combined_pcd, write_ascii=True)
         else:
             print("No save path provided, skipping save operation.")
+
         # Visualize combined point cloud
         if vis_flag:
             self.visualize_point_cloud(combined_pcd)
@@ -610,27 +612,41 @@ def test1():
     print(tf_matrix)
 
 def test2():
-    pcd1_path = "data_examples/i2i_radar/roundabout_town03_med/-125/000031.pcd"
-    pcd2_path = "data_examples/i2i_radar/roundabout_town03_med/-125/000031_radar0.pcd"
-    yaml_file = "data_examples/i2i_radar/roundabout_town03_med/-125/000031.yaml"
-    # save_path = "combined_pcd.pcd"
+    input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
+    output_root = "/home/carma/dg/results_new/town05_intersection3_4cam_radar/radar2lidar"
+
+    frame = 32
+    radar_key = 3
+    pcd1_path = f"{input_root}/{frame:06}_lidar0.pcd"
+    pcd2_path = f"{input_root}/{frame:06}_radar{radar_key}.pcd"
+    yaml_file = f"{input_root}/{frame:06}.yaml"
+    
+    save_path = f"{output_root}/{frame:06}_radar{radar_key}.pcd"
     proj = ProjLidar2Lidar(point_size=1.0)
     proj.single_comb(pcd1_path, pcd2_path, yaml_file, 
                      config_key1="lidar_pose0", 
-                     config_key2="radar_pose0",
-                     vis_flag=True)
+                     config_key2=f"radar_pose{radar_key}",
+                     save_path=save_path, vis_flag=True)
 
 def test3():
-    pcd1_path = "./data_examples/m2i_radar_dataset/000032_lidar0.pcd"
-    pcd2_path = "./data_examples/m2i_radar_dataset/000032_radar0.pcd"
-    yaml_file = "./data_examples/m2i_radar_dataset/000032.yaml"
+    input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
+    output_root = "/home/carma/dg/results_new/town05_intersection3_4cam_radar/radar2lidar"
+    
+    frame = 32
+    lidar_path = f"{input_root}/{frame:06}_lidar0.pcd"
+    radar_path = f"{input_root}/{frame:06}_radar0.pcd"
+    yaml_file = f"{input_root}/{frame:06}.yaml"
+
+    if not os.path.isdir(output_root):
+        os.makedirs(output_root)
+
     proj = ProjLidar2Lidar(point_size=1.0)
-    proj.single_radar2lidar(pcd1_path, pcd2_path, yaml_file,
+    proj.single_radar2lidar(lidar_path, radar_path, yaml_file,
                     config_key1="lidar_pose0",
                     config_key2=["radar_pose0","radar_pose1","radar_pose2","radar_pose3"], 
-                    save_path=None, vis_flag=True)
+                    save_path=f"{output_root}/{frame:06}.pcd", vis_flag=True)
     
 if __name__ == "__main__":
-    # test1()
-    # test2()
-    test3()
+    # test1() # construct_tf_matrix
+    test2() # single_comb: view radar2lidar for singular radar pcd
+    # test3() # single_radar2lidar: view radar2lidar for all 4 radar

@@ -5,14 +5,16 @@ Code description.
 # Author: Zhaoliang Zheng <zhz03@g.ucla.edu>
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
-import os
+import os, sys
+sys.path.insert(0, os.path.abspath("..")) # .../dataset_tool/tools
+
 import carla
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
-from tools.utils.yaml_utils import load_yaml
-from tools.verify_dataset.img_utils import ImageLoader
-from tools.verify_dataset.box_util import convert_carla_data_to_box
+from utils.yaml_utils import load_yaml
+from verify_dataset.img_utils import ImageLoader
+from verify_dataset.box_util import convert_carla_data_to_box
 
 class ProjBBX2Cam:
     """
@@ -478,16 +480,17 @@ class ProjBBX2Cam:
         carla_transformation = carla.Transform(location, rotation)
         return carla_transformation.get_matrix(), carla_transformation.get_inverse_matrix()
 
-def test1():
+def test_one():
     """
     Test function to verify the projection of bounding boxes onto a camera image.
     """
     proj = ProjBBX2Cam(line_width=2)
+    root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
     cam_key = "camera3"
-    img_path = f"data_examples/m2i_radar_dataset/000032_{cam_key}.png"
-    yaml_path = "data_examples/m2i_radar_dataset/000032.yaml"
-    output_img_path = "data_examples/m2i_radar_dataset/check_bbx2cam"
-    
+    img_path = f"{root}/000033_{cam_key}.png"
+    yaml_path = f"{root}/000033.yaml"
+    output_img_path = "/home/carma/dg/results_new"
+
     # Test single class projection
     # proj.single_img_bbx_proj(img_path, yaml_path,
     #                         output_img_path=output_img_path,
@@ -501,5 +504,32 @@ def test1():
                                   bbx_keys=["cars", "trucks","pedestrians", "cyclists"],
                                   vis_flag=True)
 
+def test_many(input_root, output_root, start_frame, end_frame):
+    """
+    Check results for several frames for all cams in 4cam.
+    """
+    proj = ProjBBX2Cam(line_width=2)
+    for frame in range(start_frame, end_frame + 1):
+        for cam in range(0, 4):
+            img_path = f"{input_root}/{frame:06}_camera{cam}.png"
+            yaml_path = f"{input_root}/{frame:06}.yaml"
+            output_img_path = f"{output_root}/camera{cam}"
+
+            # Test single class projection
+            # proj.single_img_bbx_proj(img_path, yaml_path,
+            #                         output_img_path=output_img_path,
+            #                         cam_key=cam_key, bbx_key="cars",
+            #                         vis_flag=True)
+            
+            # Test multi-class projection
+            proj.single_img_multi_bbx_proj(img_path, yaml_path,
+                                        save_path=output_img_path,
+                                        cam_key=f"camera{cam}",
+                                        bbx_keys=["cars", "trucks","pedestrians", "cyclists"],
+                                        vis_flag=False)
+    
 if __name__ == "__main__":
-    test1()
+    input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
+    output_root = "/home/carma/dg/results_new/town05_intersection3_4cam_radar/bbx2cam"
+    test_many(input_root, output_root, 31, 41)
+

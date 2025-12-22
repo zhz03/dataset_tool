@@ -9,7 +9,7 @@ import open3d as o3d
 import numpy as np
 from scipy.spatial.transform import Rotation
 from PIL import Image, ImageDraw
-from tools.carla_dataset_utils import common_utils
+import common_utils #from tools.carla_dataset_utils 
 
 def get_K(image_w, image_h, fov):
     # Build the K projection matrix:

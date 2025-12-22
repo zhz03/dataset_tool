@@ -5,14 +5,16 @@ Code description.
 # Author: Zhaoliang Zheng <zhz03@g.ucla.edu>
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
+import os, sys
+sys.path.insert(0, os.path.abspath("..")) # .../dataset_tool/tools
+
 import open3d as o3d
-import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from tools.verify_dataset.pcd_utils import PCLoader
-from tools.utils.yaml_utils import load_yaml
-from tools.verify_dataset.box_util import convert_carla_data_to_box, create_rotated_box
+from verify_dataset.pcd_utils import PCLoader
+from utils.yaml_utils import load_yaml
+from verify_dataset.box_util import convert_carla_data_to_box, create_rotated_box
 
 class ProjBBX2Lidar:
     def __init__(self, point_size=1.0, pose_type="global", window_name="bbx2lidar"):
@@ -27,6 +29,29 @@ class ProjBBX2Lidar:
 
         self.init_o3d_vis()
         self.init_o3dpcd()
+    
+    def _get_box_color(self, bbx_key):
+        """
+        Get the color for a specific bounding box class.
+        
+        Args:
+            bbx_key: String indicating the class of the bounding box
+            
+        Returns:
+            tuple: RGB color values (R, G, B)
+        """
+        color_map = {
+            "vehicles": (1, 0, 0),      # Red
+            "cars": (1, 0, 0),          # Red
+            "trucks": (1, 0.65, 0),      # Orange
+            "pedestrians": (0, 0, 1),   # Blue
+            "cyclists": (0, 1, 0),      # Green
+            "motorcycles": (1, 1, 0), # Yellow
+            "buses": (0.50, 0, 0.50),       # Purple
+            "traffic_lights": (0, 1, 1), # Cyan
+            "traffic_signs": (1, 0.75, 0.80) # Pink
+        }
+        return color_map.get(bbx_key, (1, 1, 1))  # Default to white if class not found
 
     def init_o3d_vis(self):
         self.vis = o3d.visualization.Visualizer()
@@ -184,7 +209,8 @@ class ProjBBX2Lidar:
         return bbx_dict
 
     def proj_bbx2lidar(self, yaml_file, pcd_file_path, 
-                            bbx_classes=["vehicles", "cyclists", "pedestrians"], lidar_key="lidar_pose"):
+                            bbx_classes=["vehicles", "cyclists", "pedestrians"], lidar_key="lidar_pose",
+                            save_path='', vis_Flag=True):
         """
         Main routine: load LiDAR point cloud, load BBX definitions and LiDAR pose, convert each BBX
         from global frame into LiDAR local frame, then visualize them together.
@@ -197,6 +223,7 @@ class ProjBBX2Lidar:
         """
         pcd_points, pcd_intensity = self.load_point_cloud(pcd_file_path)
         self.pcd.points = o3d.utility.Vector3dVector(pcd_points)
+        self.vis.create_window(visible=vis_Flag)
         self.vis.add_geometry(self.pcd)
 
         bbx_dicts = {}
@@ -233,10 +260,17 @@ class ProjBBX2Lidar:
                 raise ValueError("Not supported pose_type, only support 'global' and 'local'.")
             
             # Convert the data to a box format
-            box = create_rotated_box(position, scale, rotation, color=(1, 1, 1), offset_deg=box_offset_deg, class_type=bbx_class)
+            box = create_rotated_box(position, scale, rotation, color=self._get_box_color(bbx_class), 
+                                     offset_deg=box_offset_deg, class_type=bbx_class)
             self.vis.add_geometry(box)
 
-        self.vis.run()
+        if vis_Flag:
+            self.vis.run()
+
+        if save_path:
+            print(f"Saving bbx2lidar viz at {save_path}.")
+            self.vis.capture_screen_image(save_path)
+
         self.vis.destroy_window()
 
 
@@ -250,11 +284,19 @@ def test1():
 
 def test2():
     #! Test: Pass
-    yaml_file = "data_examples/test_town04_05/-125/000035.yaml"
-    pcd_file_path = "data_examples/test_town04_05/-125/000035_lidar0.pcd"
+    input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
+    output_root = "/home/carma/dg/results_new/town05_intersection3_4cam_radar/bbx2lidar"
+
+    frame = 32
+    pcd_file_path = f"{input_root}/{frame:06}_lidar0.pcd"
+    yaml_file = f"{input_root}/{frame:06}.yaml"
+    
+    if not os.path.isdir(output_root):
+        os.makedirs(output_root)
 
     projector = ProjBBX2Lidar()
-    projector.proj_bbx2lidar(yaml_file, pcd_file_path, bbx_classes=["cars", "cyclists", "pedestrians", "trucks"], lidar_key="lidar_pose0")
+    projector.proj_bbx2lidar(yaml_file, pcd_file_path, bbx_classes=["cars", "cyclists", "pedestrians", "trucks"], lidar_key="lidar_pose0", 
+                             save_path=f"{output_root}/{frame:06}.png", vis_Flag=True)
 
 def test3():
     #! Test: Pass
@@ -263,7 +305,6 @@ def test3():
 
     projector = ProjBBX2Lidar()
     projector.proj_bbx2lidar(yaml_file, pcd_file_path, bbx_class="cars", lidar_key="radar_pose0")
-
 
 if __name__ == "__main__":
     test2()
