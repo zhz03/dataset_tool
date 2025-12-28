@@ -21,7 +21,7 @@ export CARLA_VERSION=0.9.12 #or 0.9.14 depends on your CARLA
 . setup.sh
 ```
 
-Note: This shouldn't be an issue, but if your Python version is 3.8 or 3.9, then running `. setup.sh` will crash and you will have to manually install Carla package after you finish running `. setup.sh`:
+Note: This shouldn't be an issue, but if your Python version is 3.8 or 3.9, then running `. setup.sh` will crash. Then, you will have to manually install Carla package after you finish running `. setup.sh`:
 
 ```bash
 # You will see a cache directory after you finish 
@@ -41,7 +41,7 @@ pip install torch torchvision torchaudio
 ## V2X-InfraSet Data Verification
 
 ### Input Data Format
-For 4cam scenarios: 4 cameras, 4 radars, 4 lidars, and 1 yaml expected per frame.
+For 4cam scenarios -- 4 cameras, 4 radars, 4 lidars, and 1 yaml expected per frame.
 ``` bash
 ├── input_root_path
 │   ├── [frameID]_camera0.png
