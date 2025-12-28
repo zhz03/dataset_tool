@@ -245,8 +245,8 @@ class ProjBBX2Lidar:
             
             bbx_location = bbx_data['location']
             bbx_center = bbx_data['center']
-            bbx_center_location = [bbx_location[0] + bbx_center[0],
-                                    bbx_location[1] + bbx_center[1],
+            bbx_center_location = [bbx_location[0], # bbx_location[0] + bbx_center[0],
+                                    bbx_location[1], # bbx_location[1] + bbx_center[1]
                                     bbx_location[2]]
             bbx_extent = bbx_data['extent']
             bbx_angle = bbx_data['angle']
@@ -282,7 +282,7 @@ def test1():
     bbx_dict = projector.load_bbx(bbx_file_path, config_key="cars")
     print(bbx_dict)
 
-def test2():
+def savetopng():
     #! Test: Pass
     input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
     output_root = "/home/carma/dg/results_new/town05_intersection3_4cam_radar/bbx2lidar"
@@ -298,6 +298,20 @@ def test2():
     projector.proj_bbx2lidar(yaml_file, pcd_file_path, bbx_classes=["cars", "cyclists", "pedestrians", "trucks"], lidar_key="lidar_pose0", 
                              save_path=f"{output_root}/{frame:06}.png", vis_Flag=True)
 
+def view_in_open3d():
+    #! Test: Pass
+    input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/bridgeentry_town07_dense_4cam_radar/-125"
+    output_root = "/home/carma/dg/results_new/bridgeentry_town07_dense_4cam_radar"
+    frame = 148
+    pcd_file_path = f"{input_root}/{frame:06}_lidar0.pcd"
+    yaml_file = f"{input_root}/{frame:06}.yaml"
+
+    print(pcd_file_path, yaml_file)
+
+    projector = ProjBBX2Lidar()
+    projector.proj_bbx2lidar(yaml_file, pcd_file_path, bbx_classes=["cars", "cyclists", "pedestrians", "trucks"], lidar_key="lidar_pose0")
+
+
 def test3():
     #! Test: Pass
     yaml_file = "./data_examples/m2i_radar_dataset/000032.yaml"
@@ -307,4 +321,4 @@ def test3():
     projector.proj_bbx2lidar(yaml_file, pcd_file_path, bbx_class="cars", lidar_key="radar_pose0")
 
 if __name__ == "__main__":
-    test2()
+    view_in_open3d()

@@ -174,11 +174,11 @@ def test5_single_bbx2lidar():
              dataset_type="v2xset", project_type="bbx2lidar",
              sensor_index=sensor_index,bbx_class="vehicles")
     
-def test_many(input_root, output_root, classes, start_frame, end_frame, single_frame, flags):
+def test_many(input_root, output_root, classes, test_frames, single_frame, flags):
     # lidar2cam
     if flags["lidar2cam"]:
         lidar2cam_proj = ProjLidar2Cam(point_size=1.0)
-        for frame in range(start_frame, end_frame + 1):
+        for frame in test_frames:
             for cam in range(0, 4):
                 yaml_path = f"{input_root}/{frame:06}.yaml"
                 output_img_path = f"{output_root}/lidar2cam/camera{cam}"
@@ -187,7 +187,7 @@ def test_many(input_root, output_root, classes, start_frame, end_frame, single_f
     # radar2cam
     if flags["radar2cam"]:
         radar2cam_proj = ProjRadar2Cam(point_size=0.7)
-        for frame in range(start_frame, end_frame + 1):
+        for frame in test_frames:
             for cam in range(0, 4):
                 yaml_path = f"{input_root}/{frame:06}.yaml"
                 output_img_path = f"{output_root}/radar2cam/camera{cam}"
@@ -197,7 +197,7 @@ def test_many(input_root, output_root, classes, start_frame, end_frame, single_f
     # bbx2cam
     if flags["bbx2cam"]:
         bbx2cam_proj = ProjBBX2Cam(line_width=2)
-        for frame in range(start_frame, end_frame + 1):
+        for frame in test_frames:
             for cam in range(0, 4):
                 img_path = f"{input_root}/{frame:06}_camera{cam}.png"
                 yaml_path = f"{input_root}/{frame:06}.yaml"
@@ -224,11 +224,28 @@ def test_many(input_root, output_root, classes, start_frame, end_frame, single_f
         yaml_file = f"{input_root}/{single_frame:06}.yaml"
         output_img_path = f"{output_root}/bbx2lidar"
     
-    if not os.path.isdir(output_img_path):
-        os.makedirs(output_img_path)
+        if not os.path.isdir(output_img_path):
+            os.makedirs(output_img_path)
 
-    bbx2lidar_proj = ProjBBX2Lidar()
-    bbx2lidar_proj.proj_bbx2lidar(yaml_file, lidar_path, bbx_classes=classes, lidar_key="lidar_pose0", save_path=f"{output_img_path}/{single_frame:06}.png", vis_Flag=True)
+        bbx2lidar_proj = ProjBBX2Lidar()
+        bbx2lidar_proj.proj_bbx2lidar(yaml_file, lidar_path, bbx_classes=classes, lidar_key="lidar_pose0", save_path=f"{output_img_path}/{single_frame:06}.png", vis_Flag=True)
+
+def test():
+    input_root = "../../data_examples/v2x-real/radar"
+    output_root = "../../figs/radar_example"
+    classes = ["cars", "trucks","pedestrians", "cyclists"]
+    flags = {"lidar2cam": True, "radar2cam": True, "bbx2cam": True, "radar2lidar": True, "bbx2lidar": True}
+    
+    # # Pick 30 random frames between 31 and 300 inclusive
+    # test_frames = np.sort(np.random.choice(range(31, 301), size=30, replace=False))
+    test_frames = [31]
+    print(f"Checking frames : {test_frames}")
+
+    # # Choose one of the 30 frames randomly
+    # single_frame = np.random.choice(test_frames)
+    single_frame = 31
+
+    test_many(input_root, output_root, classes, test_frames, single_frame, flags)
 
 if __name__ == "__main__":
     # test1_batch_lidar2cam()
@@ -236,12 +253,5 @@ if __name__ == "__main__":
     # test3_single_bbx2cam()
     # test4_single_radar2lidar_batch()
     # test5_single_bbx2lidar()
-    input_root = "/media/carma/ui_4/data_transfer/data_dumping/radar_dataset/town05_intersection3_4cam_radar/-125"
-    output_root = "/home/carma/dg/results_new/town05_intersection3_4cam_radar"
-    classes = ["cars", "trucks","pedestrians", "cyclists"]
-    batch_start_frame = 250
-    batch_end_frame = 300
-    single_frame = 148
-    flags = {"lidar2cam": False, "radar2cam": False, "bbx2cam": True, "radar2lidar": True, "bbx2lidar": True}
-    test_many(input_root, output_root, classes, batch_start_frame, batch_end_frame, single_frame, flags)
+    test()
 
