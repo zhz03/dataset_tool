@@ -9,7 +9,7 @@ cd dataset_tool
 conda create -n datatool python=3.7
 conda activate datatool
 python setup.py develop
-pip install -r requirments.txt
+pip install -r requirements.txt
 ```
 
 ### Step 2: Install CARLA (Optional)
@@ -17,7 +17,7 @@ This is optional -- if you need to use Carla package for your simulation data, y
 
 ``` bash
 export CARLA_HOME=/path/to/your/CARLA_ROOT # e.g. /home/zzl/Carla/CARLA_0.9.12
-export CARLA_VERSION=0.9.12 #or 0.9.14 depends on your CARLA
+export CARLA_VERSION=0.9.12 #or 0.9.14 depending on your CARLA version
 . setup.sh
 ```
 
@@ -34,7 +34,7 @@ pip install -e $cache/carla-"${CARLA_VERSION}"-py3.7-linux-x86_64
 ### Pytorch
 ``` bash
 conda activate datatool
-## CPU verions are ok
+## CPU versions are ok
 pip install torch torchvision torchaudio
 ```
 
